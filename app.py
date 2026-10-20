@@ -7,7 +7,7 @@ from datetime import datetime
 
 # 1. إعدادات الصفحة الأساسية
 st.set_page_config(
-    page_title="كابتن الجروب 🚖 | النظام الموثق",
+    page_title="كابتن الجروب 🚖 | نظام الجروبات المتكامل",
     page_icon="🚖",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -214,8 +214,6 @@ if not st.session_state.authenticated:
                             found_g = g_name
                             break
                         for sup in g_info.get("supervisors", []):
-                            if str(sup.get("phone")) == l_phone and str(sup.get("pin")) == l_phone: # safe check
-                                pass
                             if str(sup.get("phone")) == l_phone and str(sup.get("pin")) == l_pin:
                                 found_g = g_name
                                 found_sup = sup
@@ -312,7 +310,6 @@ if not st.session_state.authenticated:
                         st.error("❌ رقم الموبايل هذا غير مسجل في النظام نهائياً!")
 
         elif st.session_state.reset_step == 2:
-            # عرض صندوق تنبيه بارز بالرمز الذي تم توليده
             st.info(f"تم إرسال رمز التحقق (OTP) إلى الرقم: **{st.session_state.reset_phone}**")
             st.markdown(f"""
                 <div style="background-color: #fef3c7; border: 2px dashed #d97706; padding: 12px; border-radius: 12px; text-align: center; margin-bottom: 15px;">
@@ -497,40 +494,49 @@ with tab2:
     col_sup, col_drv = st.columns(2)
 
     with col_sup:
-        st.markdown("### 👑 إضافة مشرف برقم هاتف")
+        st.markdown("### 👑 إضافة مشرف جديد (مع رقم الهاتف والرمز)")
         with st.form("add_sup_form", clear_on_submit=True):
-            s_name = st.text_input("اسم المشرف:")
-            s_phone = st.text_input("رقم موبايل المشرف:")
-            s_pin = st.text_input("الرمز السري (PIN):", type="password")
-            sub_s = st.form_submit_button("إضافة المشرف ➕")
+            s_name = st.text_input("اسم المشرف *:")
+            s_phone = st.text_input("رقم موبايل المشرف (لتسجيل الدخول والاستعادة) *:")
+            s_pin = st.text_input("الرمز السري الخاص به (PIN) *:", type="password")
+            sub_s = st.form_submit_button("إضافة وتوثيق المشرف ➕")
             if sub_s:
                 s_name = s_name.strip()
                 s_phone = s_phone.strip()
                 s_pin = s_pin.strip()
                 if not s_name or not s_phone or not s_pin:
-                    st.error("يرجى ملء كافة الحقول!")
+                    st.error("يرجى ملء كافة حقول المشرف بدقة!")
                 else:
-                    group_data["supervisors"].append({"name": s_name, "phone": s_phone, "pin": s_pin, "frozen": False})
-                    save_data(data)
-                    st.session_state["success_msg"] = f"✅ تم إضافة المشرف ({s_name}) بنجاح!"
-                    st.rerun()
-                    
+                    # فحص هل رقم الهاتف مستخدم مسبقاً
+                    phone_taken = (s_phone == str(group_data["phone"])) or any(str(sup.get("phone")) == s_phone for sup in group_data["supervisors"])
+                    if phone_taken:
+                        st.error("رقم الهاتف هذا مسجل مسبقاً لمشرف أو مسؤول آخر في الجروب!")
+                    else:
+                        group_data["supervisors"].append({"name": s_name, "phone": s_phone, "pin": s_pin, "frozen": False})
+                        save_data(data)
+                        st.session_state["success_msg"] = f"✅ تم إضافة المشرف ({s_name}) بنجاح!"
+                        st.rerun()
+                        
         if group_data["supervisors"]:
-            sup_names = [s["name"] for s in group_data["supervisors"]]
-            sel_s = st.selectbox("اختر المشرف:", sup_names)
+            st.markdown("#### 📋 قائمة المشرفين المسجلين:")
+            df_sup = pd.DataFrame(group_data["supervisors"])
+            df_sup["الحالة"] = df_sup["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
+            st.dataframe(df_sup[["name", "phone", "الحالة"]].rename(columns={"name": "اسم المشرف", "phone": "رقم الهاتف"}), use_container_width=True)
+            
+            sel_s = st.selectbox("اختر المشرف للإدارة:", [s["name"] for s in group_data["supervisors"]])
             s_obj = next((s for s in group_data["supervisors"] if s["name"] == sel_s), None)
             col_s1, col_s2 = st.columns(2)
             with col_s1:
                 if s_obj and st.button("🧊 تجميد/فك تجميد المشرف"):
                     s_obj["frozen"] = not s_obj.get("frozen", False)
                     save_data(data)
-                    st.session_state["success_msg"] = "✅ تم تحديث حالة المشرف!"
+                    st.session_state["success_msg"] = "✅ تم تحديث حالة المشرف بنجاح!"
                     st.rerun()
             with col_s2:
                 if s_obj and st.button("🗑️ حذف المشرف"):
                     group_data["supervisors"] = [s for s in group_data["supervisors"] if s["name"] != sel_s]
                     save_data(data)
-                    st.session_state["success_msg"] = "🗑️ تم حذف المشرف!"
+                    st.session_state["success_msg"] = "🗑️ تم حذف المشرف نهائياً!"
                     st.rerun()
 
     with col_drv:
