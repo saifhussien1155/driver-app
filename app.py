@@ -170,7 +170,7 @@ with col_user:
 st.markdown("---")
 
 # ---------------- التبويبات الرئيسية ----------------
-tab_titles = ["📝 تسجيل رزق", "👥 إدارة الاعضاء", "📋 سجل الرزق", "📊 الميزان والمالية"]
+tab_titles = ["📝 تسجيل رزق", "👥 إدارة الأعضاء والمشرفين", "📋 سجل الرزق", "📊 الميزان والمالية"]
 if st.session_state.role == "manager":
     tab_titles.append("⚙️ إعدادات المدير")
 
@@ -184,7 +184,7 @@ with tab1:
     active_drivers = [d["name"] for d in data["drivers"] if not d.get("frozen", False)]
     
     if not active_drivers:
-        st.warning("لا يوجد سواق نشطون حالياً! (يرجى إضافة سواق من تبويب إدارة الأعضاء).")
+        st.warning("لا يوجد سواق نشطون حالياً! (يرجى إضافة سواق من تبويب إدارة الأعضاء والمشرفين).")
     else:
         with st.form("add_trip_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -219,13 +219,16 @@ with tab1:
                     st.session_state["success_msg"] = f"✅ تم تسجيل كروة ({resq_type}) بقيمة {trip_price:,} د.ع بنجاح!"
                     st.rerun()
 
-# --- التبويب الثاني: إدارة السواق والمشرفين ---
+# --- التبويب الثاني: إدارة المشرفين وإدارة الأعضاء جنبًا إلى جنب ---
 with tab2:
-    st.subheader("👥 إدارة السواق والمشرفين")
-    
+    st.subheader("👥 إدارة الأعضاء والمشرفين")
+
     if st.session_state.role == "manager":
-        with st.expander("👑 قسم التحكم بالمشرفين (خاص بالمدير العام)", expanded=True):
-            st.markdown("#### ➕ 1. إضافة مشرف جديد:")
+        col_sup, col_drv = st.columns(2)
+
+        # العمود الأوّل: إدارة المشرفين
+        with col_sup:
+            st.markdown("### 👑 1. إدارة المشرفين")
             with st.form("add_supervisor_form", clear_on_submit=True):
                 sup_name = st.text_input("اسم المشرف الجديد *:")
                 sup_pin = st.text_input("الرمز السري المخصص له (PIN) *:", type="password")
@@ -245,81 +248,107 @@ with tab2:
                         st.rerun()
 
             st.markdown("---")
-            st.markdown("#### ⚙️ 2. التحكم بالمشرفين (تجميد / فك تجميد / طرد):")
+            st.markdown("#### ⚙️ إجراءات المشرفين:")
             if data["supervisors"]:
                 sup_names = [s["name"] for s in data["supervisors"]]
-                selected_sup_name = st.selectbox("اختر المشرف للإجراء:", sup_names)
+                selected_sup_name = st.selectbox("اختر المشرف:", sup_names, key="sel_sup_manage")
                 sup_obj = next((s for s in data["supervisors"] if s["name"] == selected_sup_name), None)
-                
+
                 if sup_obj:
                     col_s1, col_s2 = st.columns(2)
                     with col_s1:
                         if sup_obj.get("frozen", False):
-                            st.warning(f"⚠️ المشرف ({selected_sup_name}) مجمد حالياً.")
+                            st.warning("⚠️ المشرف مجمد حالياً")
                             if st.button("🔥 فك تجميد المشرف"):
                                 sup_obj["frozen"] = False
                                 save_data(data)
                                 st.session_state["success_msg"] = "✅ تم فك تجميد المشرف بنجاح!"
                                 st.rerun()
                         else:
-                            st.info(f"✅ المشرف ({selected_sup_name}) نشط.")
-                            if st.button("🧊 تجميد المشرف (منع الدخول)"):
+                            st.info("✅ المشرف نشط")
+                            if st.button("🧊 تجميد المشرف"):
                                 sup_obj["frozen"] = True
                                 save_data(data)
                                 st.session_state["success_msg"] = "🧊 تم تجميد المشرف بنجاح!"
                                 st.rerun()
                     with col_s2:
-                        if st.button("🗑️ طرد / حذف المشرف نهائياً"):
+                        if st.button("🗑️ طرد / حذف المشرف"):
                             data["supervisors"] = [s for s in data["supervisors"] if s["name"] != selected_sup_name]
                             save_data(data)
                             st.session_state["success_msg"] = "🗑️ تم طرد وحذف المشرف نهائياً!"
                             st.rerun()
 
-            st.markdown("---")
-            st.markdown("#### 📋 قائمة المشرفين ورموزهم:")
-            if data["supervisors"]:
+                st.markdown("---")
+                st.markdown("#### 📋 قائمة المشرفين ورموزهم:")
                 df_sup = pd.DataFrame(data["supervisors"])
                 df_sup["الحالة"] = df_sup["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
-                df_sup = df_sup.rename(columns={"name": "اسم المشرف", "pin": "الرمز السري (PIN)"})
-                st.dataframe(df_sup[["اسم المشرف", "الرمز السري (PIN)", "الحالة"]], use_container_width=True)
+                df_sup = df_sup.rename(columns={"name": "الاسم", "pin": "الرمز (PIN)"})
+                st.dataframe(df_sup[["الاسم", "الرمز (PIN)", "الحالة"]], use_container_width=True)
+            else:
+                st.info("لا يوجد مشرفون مضافون حالياً.")
 
-        st.markdown("---")
+        # العمود الثاني: إدارة الأعضاء والسواق
+        with col_drv:
+            st.markdown("### 🚘 2. إضافة سائق جديد")
+            with st.form("add_driver_form", clear_on_submit=True):
+                new_name = st.text_input("اسم السائق الكامل *:")
+                new_phone = st.text_input("رقم الهاتف:")
+                new_car = st.text_input("نوع وموديل السيارة:")
+                new_address = st.text_input("عنوان السكن:")
+                submit_add = st.form_submit_button("إضافة السائق ➕")
 
-    with st.expander("📁 1. استيراد ورَفْع سواق (Excel/CSV)"):
-        uploaded_file = st.file_uploader("اختر ملف Excel أو CSV:", type=["xlsx", "xls", "csv"])
-        if uploaded_file is not None:
-            try:
-                df_import = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-                name_col = next((c for c in df_import.columns if "اسم" in str(c) or "name" in str(c).lower()), df_import.columns[0] if len(df_import.columns)>0 else None)
-                if name_col:
-                    existing_names = {d["name"] for d in data["drivers"]}
-                    count_added = 0
-                    for _, row in df_import.iterrows():
-                        driver_name = str(row[name_col]).strip()
-                        if driver_name and driver_name not in existing_names and driver_name.lower() != "nan":
-                            data["drivers"].append({
-                                "name": driver_name,
-                                "phone": str(row.get("رقم الهاتف", "")).replace("nan", ""),
-                                "car": str(row.get("السيارة", "")).replace("nan", ""),
-                                "address": str(row.get("العنوان", "")).replace("nan", ""),
-                                "frozen": False
-                            })
-                            existing_names.add(driver_name)
-                            count_added += 1
-                    save_data(data)
-                    st.session_state["success_msg"] = f"🎉 تم استيراد وإضافة {count_added} سائق بنجاح!"
-                    st.rerun()
-            except Exception as e:
-                st.error(f"خطأ في الملف: {e}")
+                if submit_add:
+                    new_name = new_name.strip()
+                    if not new_name:
+                        st.error("يرجى إدخال اسم السائق!")
+                    elif new_name in [d["name"] for d in data["drivers"]]:
+                        st.error("السائق موجود بالفعل!")
+                    else:
+                        data["drivers"].append({"name": new_name, "phone": new_phone, "car": new_car, "address": new_address, "frozen": False})
+                        save_data(data)
+                        st.session_state["success_msg"] = f"✅ تم إضافة السائق ({new_name}) بنجاح!"
+                        st.rerun()
 
-    with st.expander("➕ 2. إضافة سائق جديد يدوياً"):
-        with st.form("add_driver_form", clear_on_submit=True):
+            st.markdown("---")
+            st.markdown("#### ⚙️ إجراءات وعقوبة السواق:")
+            if data["drivers"]:
+                selected_d = st.selectbox("اختر السائق:", [d["name"] for d in data["drivers"]], key="sel_drv_manage")
+                driver_obj = next((d for d in data["drivers"] if d["name"] == selected_d), None)
+
+                if driver_obj:
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        if driver_obj.get("frozen", False):
+                            st.warning("⚠️ السائق مجمد حالياً")
+                            if st.button("🔥 فك التجميد"):
+                                driver_obj["frozen"] = False
+                                save_data(data)
+                                st.session_state["success_msg"] = "✅ تم فك تجميد السائق بنجاح!"
+                                st.rerun()
+                        else:
+                            st.info("✅ السائق نشط")
+                            if st.button("🧊 تجميد السائق"):
+                                driver_obj["frozen"] = True
+                                save_data(data)
+                                st.session_state["success_msg"] = "🧊 تم تجميد السائق بنجاح!"
+                                st.rerun()
+                    with col_f2:
+                        if st.button("🗑️ حذف السائق نهائياً"):
+                            data["drivers"] = [d for d in data["drivers"] if d["name"] != selected_d]
+                            save_data(data)
+                            st.session_state["success_msg"] = "🗑️ تم حذف السائق نهائياً!"
+                            st.rerun()
+
+    else:
+        # واجهة المشرف فقط
+        st.markdown("### 🚘 إضافة سائق جديد")
+        with st.form("add_driver_form_sup", clear_on_submit=True):
             new_name = st.text_input("اسم السائق الكامل *:")
             new_phone = st.text_input("رقم الهاتف:")
             new_car = st.text_input("نوع وموديل السيارة:")
             new_address = st.text_input("عنوان السكن:")
             submit_add = st.form_submit_button("إضافة السائق ➕")
-            
+
             if submit_add:
                 new_name = new_name.strip()
                 if not new_name:
@@ -332,15 +361,13 @@ with tab2:
                     st.session_state["success_msg"] = f"✅ تم إضافة السائق ({new_name}) بنجاح!"
                     st.rerun()
 
-    st.markdown("---")
-    st.subheader("🧊 عقوبة تجميد ومسح السواق")
-    if data["drivers"]:
-        selected_d = st.selectbox("اختر السائق:", [d["name"] for d in data["drivers"]])
-        driver_obj = next((d for d in data["drivers"] if d["name"] == selected_d), None)
-        
-        if driver_obj:
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
+        st.markdown("---")
+        st.markdown("#### ⚙️ عقوبة تجميد السائق:")
+        if data["drivers"]:
+            selected_d = st.selectbox("اختر السائق:", [d["name"] for d in data["drivers"]], key="sel_drv_manage_sup")
+            driver_obj = next((d for d in data["drivers"] if d["name"] == selected_d), None)
+
+            if driver_obj:
                 if driver_obj.get("frozen", False):
                     st.warning("⚠️ السائق مجمد حالياً")
                     if st.button("🔥 فك تجميد السائق"):
@@ -355,15 +382,6 @@ with tab2:
                         save_data(data)
                         st.session_state["success_msg"] = "🧊 تم تجميد السائق بنجاح!"
                         st.rerun()
-            with col_f2:
-                if st.session_state.role == "manager":
-                    if st.button("🗑️ حذف السائق نهائياً"):
-                        data["drivers"] = [d for d in data["drivers"] if d["name"] != selected_d]
-                        save_data(data)
-                        st.session_state["success_msg"] = "🗑️ تم حذف السائق نهائياً!"
-                        st.rerun()
-                else:
-                    st.caption("🔒 (حذف السائق حصراً للمدير العام)")
 
     st.markdown("---")
     st.subheader("📋 دليل جميع سواق الجروب")
@@ -379,7 +397,6 @@ with tab3:
     if not data["trips"]:
         st.info("لا توجد كروات مسجلة حتى الآن.")
     else:
-        # خيارات الفلترة
         col_flt1, col_flt2 = st.columns(2)
         with col_flt1:
             filter_driver = st.selectbox("🔍 فلترة حسب السائق:", ["الكل"] + [d["name"] for d in data["drivers"]])
@@ -468,12 +485,11 @@ with tab4:
             if data["trips"]:
                 st.download_button("📥 تحميل السجل التفصيلي", pd.DataFrame(data["trips"]).to_csv(index=False, encoding='utf-8-sig'), "سجل_الكروات.csv", "text/csv")
 
-# --- التبويب الخامس: إعدادات المدير العام (حصرية للمدير) ---
+# --- التبويب الخامس: إعدادات المدير العام ---
 if tab5 and st.session_state.role == "manager":
     with tab5:
         st.subheader("⚙️ إعدادات وتعديلات المدير العام")
         
-        # 1. تغيير رمز المدير العام
         with st.expander("🔑 1. تغيير الرمز السري للمدير العام"):
             with st.form("change_pin_form"):
                 new_m_pin = st.text_input("أدخل الرمز السري الجديد للمدير:", type="password")
@@ -488,7 +504,6 @@ if tab5 and st.session_state.role == "manager":
                         st.session_state["success_msg"] = f"✅ تم تغيير رمز المدير العام إلى [{new_m_pin}] بنجاح!"
                         st.rerun()
 
-        # 2. تعديل قائمة الأسعار الإفتراضية
         with st.expander("💰 2. تعديل أسعار الكروات الإفتراضية"):
             st.info("تعديل السعر هنا سيغير السعر التلقائي عند تسجيل كروة جديدة.")
             with st.form("prices_form"):
@@ -502,7 +517,6 @@ if tab5 and st.session_state.role == "manager":
                     st.session_state["success_msg"] = "✅ تم تحديث قائمة أسعار الكروات بنجاح!"
                     st.rerun()
 
-        # 3. تصفير الحسابات والأرشفة اليدوية (اختياري)
         with st.expander("🔄 3. تصفير الحسابات وبداية شهر/فترة جديدة (اختياري)"):
             st.warning("⚠️ التصفير سيقوم بنقل جميع الكروات الحالية للأرشيف وتصفير ميزان السواق لبدء دوره جديدة.")
             archive_name = st.text_input("اسم/تاريخ الدورة الأرشيفية (مثلاً: أرباح شهر تشرين الأول):")
@@ -518,7 +532,7 @@ if tab5 and st.session_state.role == "manager":
                         "trips": data["trips"]
                     }
                     data["archives"].append(archive_entry)
-                    data["trips"] = []  # تصفير الكروات الحالية
+                    data["trips"] = []
                     save_data(data)
                     st.session_state["success_msg"] = "🎉 تم تصفير الميزان ونقل كافة البيانات السابقة إلى الأرشيف بنجاح!"
                     st.rerun()
@@ -532,7 +546,6 @@ if tab5 and st.session_state.role == "manager":
                 if arch_obj and arch_obj["trips"]:
                     st.dataframe(pd.DataFrame(arch_obj["trips"]), use_container_width=True)
 
-        # 4. حفظ واسترجاع نسخة احتياطية (Backup / Restore)
         with st.expander("💾 4. حفظ واسترجاع نسخة احتياطية من البيانات"):
             st.download_button(
                 label="📥 تنزيل نسخة احتياطية للبيانات (JSON Backup)",
