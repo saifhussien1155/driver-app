@@ -7,7 +7,7 @@ from datetime import datetime
 
 # 1. إعدادات الصفحة الأساسية
 st.set_page_config(
-    page_title="كابتن الجروب 🚖 | النظام المستقل لإدارة الكروات",
+    page_title="كابتن الجروب 🚖 | نظام الكروات والميزان",
     page_icon="🚖",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -135,6 +135,19 @@ def load_data():
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if "groups" not in data: data["groups"] = {}
+                # إصلاح تلقائي لأي جروب قديم ليس لديه الحقول الجديدة
+                for g_name, g_info in data["groups"].items():
+                    if "group_code" not in g_info: g_info["group_code"] = "12345"
+                    if "pending_drivers" not in g_info: g_info["pending_drivers"] = []
+                    if "pending_trips" not in g_info: g_info["pending_trips"] = []
+                    if "prices" not in g_info: g_info["prices"] = DEFAULT_PRICES
+                    if "chat" not in g_info: g_info["chat"] = []
+                    if "drivers" not in g_info: g_info["drivers"] = []
+                    if "trips" not in g_info: g_info["trips"] = []
+                    for d in g_info.get("drivers", []):
+                        if "role" not in d: d["role"] = "driver"
+                        if "score" not in d: d["score"] = 0
+                        if "frozen" not in d: d["frozen"] = False
                 return data
         except Exception:
             pass
@@ -296,16 +309,13 @@ current_g_name = st.session_state.current_group
 group_data = data["groups"][current_g_name]
 user_role = st.session_state.get("role_type", "driver")
 
-if "pending_drivers" not in group_data: group_data["pending_drivers"] = []
-if "group_code" not in group_data: group_data["group_code"] = "12345"
-
 st.markdown(f"""
     <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 12px 0;">
         <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 2.2rem;">🚖</span>
             <div>
                 <h2 style="margin: 0; font-size: 1.25rem; color: #d97706;">{current_g_name}</h2>
-                <span style="font-size: 0.75rem; color: #64748b;">رمز انضمام الجروب: <b>{group_data['group_code']}</b></span>
+                <span style="font-size: 0.75rem; color: #64748b;">رمز انضمام الجروب: <b>{group_data.get('group_code', '12345')}</b></span>
             </div>
         </div>
     </div>
@@ -321,7 +331,7 @@ with col_info2:
         st.session_state.current_group = None
         st.rerun()
 
-# تخصيص التبويبات حسب الصلاحية (سائق عادي vs مشرف/مسؤول)
+# تخصيص التبويبات حسب الصلاحية
 if user_role == "driver":
     tabs = st.tabs(["👤 صفحتي الشخصية", "📝 تسجيل رزق (بانتظار الموافقة)", "💬 محادثة الجروب"])
     tab1, tab2, tab3 = tabs[0], tabs[1], tabs[2]
