@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تصميم الواجهة العصرية (Modern CSS Styling)
+# 2. تصميم الواجهة العصرية وإضافة شريط تنزيل التطبيق
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
@@ -28,7 +28,6 @@ st.markdown("""
         display: none !important;
     }
 
-    /* عناوين الواجهة */
     h1, h2, h3, h4 {
         font-family: 'Tajawal', sans-serif !important;
         font-weight: 700 !important;
@@ -36,14 +35,25 @@ st.markdown("""
     }
 
     .block-container {
-        padding-top: 0.8rem !important;
+        padding-top: 0.5rem !important;
         padding-bottom: 2rem !important;
         padding-left: 0.6rem !important;
         padding-right: 0.6rem !important;
         max-width: 100% !important;
     }
 
-    /* تصميم البطاقات والنماذج Modern Card Styling */
+    /* شريط التثبيت بأعلى الشاشة */
+    .install-banner {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: #ffffff;
+        padding: 12px 15px;
+        border-radius: 14px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+        border: 1px solid #334155;
+    }
+
+    /* تصميم البطاقات والنماذج */
     div[data-testid="stForm"], div.stExpander {
         background: #ffffff;
         padding: 16px;
@@ -66,18 +76,11 @@ st.markdown("""
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
 
-    /* زر التسجيل الرئيسي باللون الذهبي التكسي */
     button[kind="primary"] {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
         color: #ffffff !important;
     }
-    
-    button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
-        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3) !important;
-    }
 
-    /* التبويبات العلويّة Tabs */
     div[data-baseweb="tab-list"] {
         gap: 6px !important;
         flex-wrap: wrap !important;
@@ -102,7 +105,6 @@ st.markdown("""
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
     }
 
-    /* شارات الإحصائيات (KPI Cards) */
     .metric-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
@@ -183,6 +185,14 @@ def save_data(data):
 
 data = load_data()
 
+# 📱 شريط إرشادي علوي لتنزيل التطبيق
+with st.expander("📲 اضغط هنا لتثبيت التطبيق على الشاشة الرئيسية لموبايلك", expanded=False):
+    st.markdown("""
+    **كيف تحفظ التطبيق كبرنامج بموبايلك؟**
+    * **موبايلات أندرويد (Chrome):** اضغط على نقاط المتصفح الثلاث (⋮) بالأعلى واختار **"الإضافة إلى الشاشة الرئيسية"**.
+    * **موبايلات آيفون (Safari):** اضغط على زر المشاركة الأسفل ( 📤 ) واختار **"إضافة إلى الشاشة الرئيسية"**.
+    """)
+
 # ---------------- 🔒 شاشة تسجيل الدخول العصرية ----------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -191,10 +201,10 @@ if "authenticated" not in st.session_state:
 
 if not st.session_state.authenticated:
     st.markdown("""
-        <div style="text-align: center; padding: 20px 0 10px 0;">
-            <div style="font-size: 4rem; line-height: 1;">🚖</div>
-            <h2 style="color: #d97706; margin-top: 10px; font-weight: 800;">كابتن الجروب</h2>
-            <p style="color: #64748b; font-size: 0.95rem;">النظام الذكي لإدارة وميزان كروات التكسي</p>
+        <div style="text-align: center; padding: 15px 0 10px 0;">
+            <div style="font-size: 3.8rem; line-height: 1;">🚖</div>
+            <h2 style="color: #d97706; margin-top: 8px; font-weight: 800;">كابتن الجروب</h2>
+            <p style="color: #64748b; font-size: 0.9rem;">النظام الذكي لإدارة وميزان كروات التكسي</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -231,11 +241,11 @@ if "success_msg" in st.session_state:
 
 # هيدر التطبيق وشعار التكسي
 st.markdown("""
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 12px 0;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 10px 0;">
         <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 2.2rem;">🚖</span>
+            <span style="font-size: 2rem;">🚖</span>
             <div>
-                <h2 style="margin: 0; font-size: 1.25rem; color: #d97706;">كابتن الجروب</h2>
+                <h2 style="margin: 0; font-size: 1.2rem; color: #d97706;">كابتن الجروب</h2>
                 <span style="font-size: 0.75rem; color: #64748b;">نظام متابعة الكروات</span>
             </div>
         </div>
@@ -253,14 +263,14 @@ with col_info2:
         st.session_state.user_name = None
         st.rerun()
 
-# 📊 شريط إحصائيات سريع السواح والكروات
+# 📊 شريط إحصائيات سريع
 active_drivers_count = len([d for d in data["drivers"] if not d.get("frozen", False)])
 today_str = datetime.now().strftime("%Y-%m-%d")
 today_trips_count = len([t for t in data["trips"] if str(t.get("time", "")).startswith(today_str)])
 total_trips_count = len(data["trips"])
 
 st.markdown(f"""
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
         <div class="metric-card">
             <div class="metric-val">{active_drivers_count}</div>
             <div class="metric-lbl">سائق نشط 🚖</div>
@@ -447,7 +457,6 @@ with tab2:
                             st.rerun()
 
     else:
-        # واجهة المشرف
         st.markdown("### 🚘 إضافة سائق جديد")
         with st.form("add_driver_form_sup", clear_on_submit=True):
             new_name = st.text_input("اسم السائق الكامل *:")
