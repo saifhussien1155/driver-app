@@ -3,7 +3,6 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
-import streamlit.components.v1 as components
 
 # 1. إعدادات الصفحة الأساسية
 st.set_page_config(
@@ -36,14 +35,13 @@ st.markdown("""
     }
 
     .block-container {
-        padding-top: 0.5rem !important;
+        padding-top: 0.8rem !important;
         padding-bottom: 2rem !important;
         padding-left: 0.6rem !important;
         padding-right: 0.6rem !important;
         max-width: 100% !important;
     }
 
-    /* تصميم البطاقات والنماذج */
     div[data-testid="stForm"], div.stExpander {
         background: #ffffff;
         padding: 16px;
@@ -53,7 +51,6 @@ st.markdown("""
         margin-bottom: 12px;
     }
 
-    /* أزرار التطبيق العصرية */
     .stButton>button, div[data-testid="stForm"] button {
         width: 100% !important;
         border-radius: 12px !important;
@@ -117,49 +114,6 @@ st.markdown("""
     #MainMenu, header, footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
-
-# 📱 كود التثبيت المباشر بالـ JavaScript
-pwa_installer_code = """
-<script>
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  const btn = document.getElementById('installAppBtn');
-  if(btn) { btn.style.display = 'block'; }
-});
-
-function triggerInstall() {
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then((choiceResult) => {
-      deferredPrompt = null;
-    });
-  } else {
-    alert("📲 لتثبيت التطبيق فوراً:\n1. اضغط علامة الاختيارات (⋮) بأعلى المتصفح.\n2. اختر (الإضافة إلى الشاشة الرئيسية).");
-  }
-}
-</script>
-
-<div style="text-align: center; margin-bottom: 10px;">
-    <button id="installAppBtn" onclick="triggerInstall()" style="
-        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-        color: white;
-        font-family: 'Segoe UI', Tahoma, sans-serif;
-        font-weight: bold;
-        font-size: 0.95rem;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 12px;
-        width: 100%;
-        box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
-        cursor: pointer;
-    ">
-        📲 اضغط هنا لتثبيت تطبيق كابتن الجروب فوراً
-    </button>
-</div>
-"""
-components.html(pwa_installer_code, height=65)
 
 DATA_FILE = "drivers_data.json"
 
@@ -226,10 +180,10 @@ if "authenticated" not in st.session_state:
 
 if not st.session_state.authenticated:
     st.markdown("""
-        <div style="text-align: center; padding: 10px 0 10px 0;">
-            <div style="font-size: 3.8rem; line-height: 1;">🚖</div>
-            <h2 style="color: #d97706; margin-top: 8px; font-weight: 800;">كابتن الجروب</h2>
-            <p style="color: #64748b; font-size: 0.9rem;">النظام الذكي لإدارة وميزان كروات التكسي</p>
+        <div style="text-align: center; padding: 20px 0 10px 0;">
+            <div style="font-size: 4rem; line-height: 1;">🚖</div>
+            <h2 style="color: #d97706; margin-top: 10px; font-weight: 800;">كابتن الجروب</h2>
+            <p style="color: #64748b; font-size: 0.95rem;">النظام الذكي لإدارة وميزان كروات التكسي</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -266,11 +220,11 @@ if "success_msg" in st.session_state:
 
 # هيدر التطبيق
 st.markdown("""
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 10px 0;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 12px 0;">
         <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 2rem;">🚖</span>
+            <span style="font-size: 2.2rem;">🚖</span>
             <div>
-                <h2 style="margin: 0; font-size: 1.2rem; color: #d97706;">كابتن الجروب</h2>
+                <h2 style="margin: 0; font-size: 1.25rem; color: #d97706;">كابتن الجروب</h2>
                 <span style="font-size: 0.75rem; color: #64748b;">نظام متابعة الكروات</span>
             </div>
         </div>
@@ -295,7 +249,7 @@ today_trips_count = len([t for t in data["trips"] if str(t.get("time", "")).star
 total_trips_count = len(data["trips"])
 
 st.markdown(f"""
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px;">
         <div class="metric-card">
             <div class="metric-val">{active_drivers_count}</div>
             <div class="metric-lbl">سائق نشط 🚖</div>
