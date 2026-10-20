@@ -2,59 +2,125 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from datetime import datetime, date
+from datetime import datetime
 
-# 1. إعدادات الصفحة الأساسية
+# 1. إعدادات الصفحة الأساسية مع أيقونة التكسي
 st.set_page_config(
-    page_title="نظام متابعة كروات الجروب",
-    page_icon="🚗",
+    page_title="كابتن الجروب 🚖 | نظام الكروات",
+    page_icon="🚖",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 2. تحسين مظهر الواجهة والتجاوب مع شاشات الموبايل
+# 2. تصميم الواجهة العصرية (Modern CSS Styling)
 st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+    
     html, body, [class*="css"], .stApp {
         direction: rtl;
         text-align: right;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: 'Tajawal', 'Segoe UI', sans-serif;
+        background-color: #f8fafc;
     }
+    
     [data-testid="stSidebar"], [data-testid="collapsedControl"] {
         display: none !important;
     }
-    h1 { font-size: 1.2rem !important; line-height: 1.3 !important; }
-    h2 { font-size: 1.05rem !important; line-height: 1.3 !important; }
-    h3, h4 { font-size: 0.95rem !important; line-height: 1.3 !important; }
-    
+
+    /* عناوين الواجهة */
+    h1, h2, h3, h4 {
+        font-family: 'Tajawal', sans-serif !important;
+        font-weight: 700 !important;
+        color: #0f172a;
+    }
+
     .block-container {
         padding-top: 0.8rem !important;
-        padding-bottom: 1.5rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 0.6rem !important;
+        padding-right: 0.6rem !important;
         max-width: 100% !important;
     }
 
-    div[data-testid="stForm"] {
-        background-color: #ffffff;
-        padding: 12px;
-        border-radius: 12px;
+    /* تصميم البطاقات والنماذج Modern Card Styling */
+    div[data-testid="stForm"], div.stExpander {
+        background: #ffffff;
+        padding: 16px;
+        border-radius: 16px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        margin-bottom: 12px;
     }
 
+    /* أزرار التطبيق العصرية */
     .stButton>button, div[data-testid="stForm"] button {
         width: 100% !important;
-        border-radius: 10px !important;
-        font-size: 1rem !important;
-        font-weight: bold !important;
-        padding: 8px 10px !important;
-        margin-top: 6px !important;
+        border-radius: 12px !important;
+        font-size: 1.02rem !important;
+        font-weight: 700 !important;
+        font-family: 'Tajawal', sans-serif !important;
+        padding: 10px 14px !important;
+        transition: all 0.2s ease-in-out;
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
 
-    div[data-baseweb="tab-list"] { gap: 2px !important; flex-wrap: wrap !important; }
-    button[data-baseweb="tab"] { font-size: 0.8rem !important; padding: 5px 6px !important; }
+    /* زر التسجيل الرئيسي باللون الذهبي التكسي */
+    button[kind="primary"] {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+        color: #ffffff !important;
+    }
+    
+    button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3) !important;
+    }
+
+    /* التبويبات العلويّة Tabs */
+    div[data-baseweb="tab-list"] {
+        gap: 6px !important;
+        flex-wrap: wrap !important;
+        background-color: #e2e8f0;
+        padding: 5px;
+        border-radius: 14px;
+        margin-bottom: 15px;
+    }
+    
+    button[data-baseweb="tab"] {
+        font-family: 'Tajawal', sans-serif !important;
+        font-size: 0.88rem !important;
+        font-weight: 700 !important;
+        padding: 8px 12px !important;
+        border-radius: 10px !important;
+        color: #475569 !important;
+    }
+
+    button[aria-selected="true"] {
+        background-color: #ffffff !important;
+        color: #d97706 !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+    }
+
+    /* شارات الإحصائيات (KPI Cards) */
+    .metric-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 10px 14px;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+    .metric-val {
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: #d97706;
+    }
+    .metric-lbl {
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 600;
+    }
 
     #MainMenu, header, footer { visibility: hidden; }
     </style>
@@ -117,60 +183,101 @@ def save_data(data):
 
 data = load_data()
 
-# ---------------- 🔒 نظام تسجيل الدخول ----------------
+# ---------------- 🔒 شاشة تسجيل الدخول العصرية ----------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.role = None
     st.session_state.user_name = None
 
 if not st.session_state.authenticated:
-    st.title("🚗 تسجيل الدخول لتطبيق كروات الجروب")
-    st.info("🔒 يرجى إدخال الرمز السري (PIN) للدخول.")
+    st.markdown("""
+        <div style="text-align: center; padding: 20px 0 10px 0;">
+            <div style="font-size: 4rem; line-height: 1;">🚖</div>
+            <h2 style="color: #d97706; margin-top: 10px; font-weight: 800;">كابتن الجروب</h2>
+            <p style="color: #64748b; font-size: 0.95rem;">النظام الذكي لإدارة وميزان كروات التكسي</p>
+        </div>
+    """, unsafe_allow_html=True)
     
-    pin_entry = st.text_input("🔑 الرمز السري:", type="password")
-    if st.button("دخول النظام 🚀", type="primary"):
-        if pin_entry == str(data.get("manager_pin", "1234")):
-            st.session_state.authenticated = True
-            st.session_state.role = "manager"
-            st.session_state.user_name = "المدير العام"
-            st.success("🔓 مرحباً بك يا مديرنا العام!")
-            st.rerun()
-        else:
-            supervisor = next((s for s in data.get("supervisors", []) if str(s.get("pin")) == pin_entry), None)
-            if supervisor:
-                if supervisor.get("frozen", False):
-                    st.error("⚠️ حساب هذا المشرف مجمد حالياً بقرار من المدير العام!")
-                else:
-                    st.session_state.authenticated = True
-                    st.session_state.role = "supervisor"
-                    st.session_state.user_name = supervisor["name"]
-                    st.success(f"✅ مرحباً بك المشرف: {supervisor['name']}")
-                    st.rerun()
+    with st.form("login_form"):
+        st.markdown("##### 🔒 تسجيل الدخول بالنظام")
+        pin_entry = st.text_input("🔑 أدخل الرمز السري (PIN):", type="password")
+        submit_login = st.form_submit_button("دخول للنظام 🚀", type="primary")
+        
+        if submit_login:
+            if pin_entry == str(data.get("manager_pin", "1234")):
+                st.session_state.authenticated = True
+                st.session_state.role = "manager"
+                st.session_state.user_name = "المدير العام"
+                st.success("🔓 مرحباً بك يا مديرنا العام!")
+                st.rerun()
             else:
-                st.error("❌ الرمز السري خاطئ أو غير مصرح له بالدخول!")
+                supervisor = next((s for s in data.get("supervisors", []) if str(s.get("pin")) == pin_entry), None)
+                if supervisor:
+                    if supervisor.get("frozen", False):
+                        st.error("⚠️ حساب هذا المشرف مجمد حالياً بقرار من المدير العام!")
+                    else:
+                        st.session_state.authenticated = True
+                        st.session_state.role = "supervisor"
+                        st.session_state.user_name = supervisor["name"]
+                        st.success(f"✅ مرحباً بك المشرف: {supervisor['name']}")
+                        st.rerun()
+                else:
+                    st.error("❌ الرمز السري خاطئ أو غير مصرح له بالدخول!")
     st.stop()
 
 # ---------------- بداية التطبيق الرئيسي ----------------
 if "success_msg" in st.session_state:
     st.success(st.session_state.pop("success_msg"))
 
-# هيدر التطبيق
-col_title, col_user = st.columns([1.5, 1.5])
-with col_title:
-    st.title("🚗 كروات الجروب")
-with col_user:
-    role_label = "👑 المدير العام" if st.session_state.role == "manager" else f"👤 المشرف: {st.session_state.user_name}"
-    st.caption(f"الحساب: **{role_label}**")
-    if st.button("تسجيل الخروج 🚪"):
+# هيدر التطبيق وشعار التكسي
+st.markdown("""
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 12px 0;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 2.2rem;">🚖</span>
+            <div>
+                <h2 style="margin: 0; font-size: 1.25rem; color: #d97706;">كابتن الجروب</h2>
+                <span style="font-size: 0.75rem; color: #64748b;">نظام متابعة الكروات</span>
+            </div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
+col_info1, col_info2 = st.columns([2, 1])
+with col_info1:
+    role_badge = "👑 المدير العام" if st.session_state.role == "manager" else f"👤 المشرف: {st.session_state.user_name}"
+    st.caption(f"الحساب الحالي: **{role_badge}**")
+with col_info2:
+    if st.button("خروج 🚪"):
         st.session_state.authenticated = False
         st.session_state.role = None
         st.session_state.user_name = None
         st.rerun()
 
-st.markdown("---")
+# 📊 شريط إحصائيات سريع السواح والكروات
+active_drivers_count = len([d for d in data["drivers"] if not d.get("frozen", False)])
+today_str = datetime.now().strftime("%Y-%m-%d")
+today_trips_count = len([t for t in data["trips"] if str(t.get("time", "")).startswith(today_str)])
+total_trips_count = len(data["trips"])
+
+st.markdown(f"""
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px;">
+        <div class="metric-card">
+            <div class="metric-val">{active_drivers_count}</div>
+            <div class="metric-lbl">سائق نشط 🚖</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-val">{today_trips_count}</div>
+            <div class="metric-lbl">كروات اليوم 📈</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-val">{total_trips_count}</div>
+            <div class="metric-lbl">مجموع الكروات 📋</div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 # ---------------- التبويبات الرئيسية ----------------
-tab_titles = ["📝 تسجيل رزق", "👥 إدارة الأعضاء والمشرفين", "📋 سجل الرزق", "📊 الميزان والمالية"]
+tab_titles = ["📝 تسجيل رزق", "👥 الأعضاء والمشرفين", "📋 سجل الكروات", "📊 الميزان والمالية"]
 if st.session_state.role == "manager":
     tab_titles.append("⚙️ إعدادات المدير")
 
@@ -184,7 +291,7 @@ with tab1:
     active_drivers = [d["name"] for d in data["drivers"] if not d.get("frozen", False)]
     
     if not active_drivers:
-        st.warning("لا يوجد سواق نشطون حالياً! (يرجى إضافة سواق من تبويب إدارة الأعضاء والمشرفين).")
+        st.warning("لا يوجد سواق نشطون حالياً! (يرجى إضافة سواق من تبويب إدارة الأعضاء).")
     else:
         with st.form("add_trip_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -219,14 +326,14 @@ with tab1:
                     st.session_state["success_msg"] = f"✅ تم تسجيل كروة ({resq_type}) بقيمة {trip_price:,} د.ع بنجاح!"
                     st.rerun()
 
-# --- التبويب الثاني: إدارة المشرفين وإدارة الأعضاء جنبًا إلى جنب ---
+# --- التبويب الثاني: إدارة الأعضاء والمشرفين جنبًا إلى جنب ---
 with tab2:
     st.subheader("👥 إدارة الأعضاء والمشرفين")
 
     if st.session_state.role == "manager":
         col_sup, col_drv = st.columns(2)
 
-        # العمود الأوّل: إدارة المشرفين
+        # العمود الأول: إدارة المشرفين
         with col_sup:
             st.markdown("### 👑 1. إدارة المشرفين")
             with st.form("add_supervisor_form", clear_on_submit=True):
@@ -279,7 +386,7 @@ with tab2:
                             st.rerun()
 
                 st.markdown("---")
-                st.markdown("#### 📋 قائمة المشرفين ورموزهم:")
+                st.markdown("#### 📋 قائمة المشرفين:")
                 df_sup = pd.DataFrame(data["supervisors"])
                 df_sup["الحالة"] = df_sup["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
                 df_sup = df_sup.rename(columns={"name": "الاسم", "pin": "الرمز (PIN)"})
@@ -287,7 +394,7 @@ with tab2:
             else:
                 st.info("لا يوجد مشرفون مضافون حالياً.")
 
-        # العمود الثاني: إدارة الأعضاء والسواق
+        # العمود الثاني: إدارة الاعضاء والسواق
         with col_drv:
             st.markdown("### 🚘 2. إضافة سائق جديد")
             with st.form("add_driver_form", clear_on_submit=True):
@@ -340,7 +447,7 @@ with tab2:
                             st.rerun()
 
     else:
-        # واجهة المشرف فقط
+        # واجهة المشرف
         st.markdown("### 🚘 إضافة سائق جديد")
         with st.form("add_driver_form_sup", clear_on_submit=True):
             new_name = st.text_input("اسم السائق الكامل *:")
@@ -391,7 +498,7 @@ with tab2:
         df_show = df_show.rename(columns={"name": "الاسم", "phone": "الهاتف", "car": "السيارة", "address": "السكن"})
         st.dataframe(df_show[["الاسم", "الحالة", "الهاتف", "السيارة", "السكن"]], use_container_width=True)
 
-# --- التبويب الثالث: سجل الرزق والفلترة ---
+# --- التبويب الثالث: سجل الكروات التفصيلي ---
 with tab3:
     st.subheader("📜 سجل الكروات التفصيلي والفلترة")
     if not data["trips"]:
@@ -409,7 +516,6 @@ with tab3:
             filtered_trips = [t for t in filtered_trips if t.get("giver") == filter_driver or t.get("receiver") == filter_driver]
 
         if filter_date == "اليوم فقط":
-            today_str = datetime.now().strftime("%Y-%m-%d")
             filtered_trips = [t for t in filtered_trips if str(t.get("time", "")).startswith(today_str)]
 
         if not filtered_trips:
@@ -467,13 +573,13 @@ with tab4:
         st.markdown("---")
         st.subheader("📲 مشاركة الميزان بجروب الواتساب")
         
-        wa_text = "🚗 *تقرير ميزان كروات الجروب* 🚗\n"
+        wa_text = "🚖 *تقرير ميزان كروات الجروب* 🚖\n"
         wa_text += f"📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %I:%M %p')}\n"
         wa_text += "-----------------------------------\n"
         for item in summary_data:
             wa_text += f"👤 *{item['اسم السائق']}*: كروات ({item['صافي الكروات']}) | الصافي المالي: ({item['الصافي الفعلي (د.ع)']} د.ع)\n"
         wa_text += "-----------------------------------\n"
-        wa_text += "تحيات إدارة الجروب 🌹"
+        wa_text += "تحيات إدارة كابتن الجروب 🌹"
         
         st.text_area("انسخ هذا النص وارقعه بجروب الواتساب مباشرة:", wa_text, height=150)
         
