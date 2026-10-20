@@ -7,7 +7,7 @@ from datetime import datetime
 
 # 1. إعدادات الصفحة الأساسية
 st.set_page_config(
-    page_title="كابتن الجروب 🚖 | نظام الجروبات المتكامل",
+    page_title="كابتن الجروب 🚖 | نظام الكروات والميزان",
     page_icon="🚖",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -125,7 +125,8 @@ DEFAULT_PRICES = {
     "حوض": 15000,
     "بريد": 5000,
     "بريد كامل": 10000,
-    "كروة مرجع": 12000
+    "كروة مرجع": 12000,
+    "أخرى (إدخال يدوي ✍️)": 0
 }
 
 def load_data():
@@ -134,14 +135,10 @@ def load_data():
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if "groups" not in data: data["groups"] = {}
-                if "manager_pin" not in data: data["manager_pin"] = "1234"
-                if "manager_phone" not in data: data["manager_phone"] = "07700000000"
                 return data
         except Exception:
             pass
     return {
-        "manager_pin": "1234",
-        "manager_phone": "07700000000",
         "groups": {
             "الجروب الرئيسي": {
                 "phone": "07711111111",
@@ -150,7 +147,8 @@ def load_data():
                 "trips": [],
                 "supervisors": [],
                 "prices": DEFAULT_PRICES,
-                "archives": []
+                "archives": [],
+                "chat": []
             }
         }
     }
@@ -172,7 +170,6 @@ if "reset_step" not in st.session_state:
 # ---------------- 🔒 شاشة تسجيل الدخول أو التسجيل أو استعادة الرمز ----------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-    st.session_state.role = None
     st.session_state.user_name = None
     st.session_state.current_group = None
 
@@ -181,16 +178,16 @@ if not st.session_state.authenticated:
         <div style="text-align: center; padding: 15px 0 10px 0;">
             <div style="font-size: 3.8rem; line-height: 1;">🚖</div>
             <h2 style="color: #d97706; margin-top: 8px; font-weight: 800;">كابتن الجروب</h2>
-            <p style="color: #64748b; font-size: 0.9rem;">نظام إدارة وميزان كروات التكسي الموثق</p>
+            <p style="color: #64748b; font-size: 0.9rem;">نظام إدارة وميزان كروات التكسي المستقل</p>
         </div>
     """, unsafe_allow_html=True)
     
-    tab_auth1, tab_auth2, tab_auth3 = st.tabs(["🔑 تسجيل الدخول", "✨ حساب جديد", "🔄 استعادة الرمز"])
+    tab_auth1, tab_auth2, tab_auth3 = st.tabs(["🔑 تسجيل الدخول", "✨ حساب جروب جديد", "🔄 استعادة الرمز"])
     
     # 1. تسجيل الدخول
     with tab_auth1:
         with st.form("login_form"):
-            st.markdown("##### تسجيل الدخول لحسابك القائم")
+            st.markdown("##### تسجيل الدخول لحساب الجروب أو المشرفين")
             l_phone = st.text_input("📞 رقم الموبايل:")
             l_pin = st.text_input("🔑 الرمز السري (PIN):", type="password")
             sub_l = st.form_submit_button("دخول للنظام 🚀", type="primary")
@@ -199,50 +196,41 @@ if not st.session_state.authenticated:
                 l_phone = l_phone.strip()
                 l_pin = l_pin.strip()
                 
-                if l_phone == str(data.get("manager_phone")) and l_pin == str(data.get("manager_pin")):
-                    st.session_state.authenticated = True
-                    st.session_state.role = "manager"
-                    st.session_state.user_name = "المدير العام"
-                    st.session_state.current_group = "إدارة عامة"
-                    st.success("🔓 أهلاً بك يا مديرنا العام!")
-                    st.rerun()
-                else:
-                    found_g = None
-                    found_sup = None
-                    for g_name, g_info in data["groups"].items():
-                        if str(g_info.get("phone")) == l_phone and str(g_info.get("pin")) == l_pin:
+                found_g = None
+                found_sup = None
+                for g_name, g_info in data["groups"].items():
+                    if str(g_info.get("phone")) == l_phone and str(g_info.get("pin")) == l_pin:
+                        found_g = g_name
+                        break
+                    for sup in g_info.get("supervisors", []):
+                        if str(sup.get("phone")) == l_phone and str(sup.get("pin")) == l_pin:
                             found_g = g_name
+                            found_sup = sup
                             break
-                        for sup in g_info.get("supervisors", []):
-                            if str(sup.get("phone")) == l_phone and str(sup.get("pin")) == l_pin:
-                                found_g = g_name
-                                found_sup = sup
-                                break
-                        if found_g:
-                            break
-                            
                     if found_g:
-                        g_info = data["groups"][found_g]
-                        if found_sup and found_sup.get("frozen", False):
-                            st.error("⚠️ حسابك كمشرف مجمد حالياً!")
-                        else:
-                            st.session_state.authenticated = True
-                            st.session_state.role = "supervisor" if found_sup else "group_admin"
-                            st.session_state.user_name = found_sup["name"] if found_sup else f"مسؤول {found_g}"
-                            st.session_state.current_group = found_g
-                            st.success(f"✅ تم تسجيل الدخول بنجاح إلى: {found_g}")
-                            st.rerun()
+                        break
+                        
+                if found_g:
+                    g_info = data["groups"][found_g]
+                    if found_sup and found_sup.get("frozen", False):
+                        st.error("⚠️ حسابك كمشرف مجمد حالياً من قبل مسؤول الجروب!")
                     else:
-                        st.error("❌ رقم الموبايل أو الرمز السري غير صحيح!")
+                        st.session_state.authenticated = True
+                        st.session_state.user_name = found_sup["name"] if found_sup else f"مسؤول {found_g}"
+                        st.session_state.current_group = found_g
+                        st.success(f"✅ تم تسجيل الدخول بنجاح إلى جروب: {found_g}")
+                        st.rerun()
+                else:
+                    st.error("❌ رقم الموبايل أو الرمز السري غير صحيح!")
 
-    # 2. إنشاء حساب جديد
+    # 2. إنشاء حساب جروب جديد
     with tab_auth2:
         with st.form("register_form"):
-            st.markdown("##### إنشاء حساب جروب جديد بنفسك")
-            r_gname = st.text_input("اسم الجروب الجديد (مثلاً: جروب الكرادة):")
-            r_phone = st.text_input("رقم الموبايل (سيكون معتمد لتسجيل الدخول والاستعادة):")
+            st.markdown("##### تسجيل حساب جروب جديد بالنظام")
+            r_gname = st.text_input("اسم الجروب (مثلاً: جروب الكرادة / شركة الأمان):")
+            r_phone = st.text_input("رقم موبايل المسؤول (للدخول والاستعادة):")
             r_pin = st.text_input("اختر رمزاً سرياً (PIN) لا يقل عن 4 أرقام:", type="password")
-            sub_r = st.form_submit_button("تسجيل الحساب وانطلاق 🚀", type="primary")
+            sub_r = st.form_submit_button("إنشاء الجروب وانطلاق 🚀", type="primary")
             
             if sub_r:
                 r_gname = r_gname.strip()
@@ -256,7 +244,7 @@ if not st.session_state.authenticated:
                 else:
                     phone_exists = any(str(g.get("phone")) == r_phone for g in data["groups"].values())
                     if phone_exists:
-                        st.error("رقم الهاتف هذا مسجل مسبقاً بحساب آخر!")
+                        st.error("رقم الهاتف هذا مسجل مسبقاً بحساب جروب آخر!")
                     else:
                         data["groups"][r_gname] = {
                             "phone": r_phone,
@@ -265,17 +253,17 @@ if not st.session_state.authenticated:
                             "trips": [],
                             "supervisors": [],
                             "prices": DEFAULT_PRICES,
-                            "archives": []
+                            "archives": [],
+                            "chat": []
                         }
                         save_data(data)
                         st.session_state.authenticated = True
-                        st.session_state.role = "group_admin"
                         st.session_state.user_name = f"مسؤول {r_gname}"
                         st.session_state.current_group = r_gname
                         st.session_state["success_msg"] = f"🎉 تم إنشاء حساب جروب ({r_gname}) بنجاح!"
                         st.rerun()
 
-    # 3. استعادة الرمز المطور عبر إرسال رمز تحقق وتغيير الرمز
+    # 3. استعادة الرمز
     with tab_auth3:
         st.markdown("##### 🔄 استعادة وتغيير الرمز السري عبر رقم الموبايل")
         
@@ -287,18 +275,15 @@ if not st.session_state.authenticated:
                 if sub_send_otp:
                     rec_phone = rec_phone.strip()
                     exists = False
-                    if rec_phone == str(data.get("manager_phone")):
-                        exists = True
-                    else:
-                        for g_info in data["groups"].values():
-                            if str(g_info.get("phone")) == rec_phone:
+                    for g_info in data["groups"].values():
+                        if str(g_info.get("phone")) == rec_phone:
+                            exists = True
+                            break
+                        for sup in g_info.get("supervisors", []):
+                            if str(sup.get("phone")) == rec_phone:
                                 exists = True
                                 break
-                            for sup in g_info.get("supervisors", []):
-                                if str(sup.get("phone")) == rec_phone:
-                                    exists = True
-                                    break
-                            if exists: break
+                        if exists: break
                             
                     if exists:
                         generated_otp = str(random.randint(1000, 9999))
@@ -333,17 +318,14 @@ if not st.session_state.authenticated:
                         st.error("❌ الرمز السري الجديد يجب ألا يقل عن 4 أرقام!")
                     else:
                         target_phone = st.session_state.reset_phone
-                        if target_phone == str(data.get("manager_phone")):
-                            data["manager_pin"] = new_pin_input
-                        else:
-                            for g_info in data["groups"].values():
-                                if str(g_info.get("phone")) == target_phone:
-                                    g_info["pin"] = new_pin_input
+                        for g_info in data["groups"].values():
+                            if str(g_info.get("phone")) == target_phone:
+                                g_info["pin"] = new_pin_input
+                                break
+                            for sup in g_info.get("supervisors", []):
+                                if str(sup.get("phone")) == target_phone:
+                                    sup["pin"] = new_pin_input
                                     break
-                                for sup in g_info.get("supervisors", []):
-                                    if str(sup.get("phone")) == target_phone:
-                                        sup["pin"] = new_pin_input
-                                        break
                         save_data(data)
                         
                         st.session_state.reset_step = 1
@@ -357,44 +339,7 @@ if not st.session_state.authenticated:
                 st.rerun()
     st.stop()
 
-# ---------------- بداية التطبيق بعد تسجيل الدخول بنجاح ----------------
-
-if st.session_state.role == "manager":
-    st.markdown("""
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 12px 0;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 2.2rem;">👑</span>
-                <div>
-                    <h2 style="margin: 0; font-size: 1.25rem; color: #d97706;">لوحة تحكم المدير العام</h2>
-                    <span style="font-size: 0.75rem; color: #64748b;">إدارة كافة الجروبات المسجلة</span>
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button("خروج 🚪"):
-        st.session_state.authenticated = False
-        st.session_state.role = None
-        st.session_state.user_name = None
-        st.session_state.current_group = None
-        st.rerun()
-        
-    st.markdown("---")
-    st.subheader("📋 كافة الجروبات المسجلة بالنظام")
-    if data["groups"]:
-        g_list = [{"اسم الجروب": k, "رقم الموبايل": v["phone"], "الرمز (PIN)": v["pin"], "عدد السواق": len(v["drivers"])} for k, v in data["groups"].items()]
-        st.dataframe(pd.DataFrame(g_list), use_container_width=True)
-        
-        sel_del_g = st.selectbox("اختر جروب للحذف:", ["اختر..."] + list(data["groups"].keys()))
-        if sel_del_g != "اختر..." and st.button("🗑️ حذف هذا الجروب"):
-            if len(data["groups"]) <= 1:
-                st.error("لا يمكن حذف الجروب الوحيد المتبقي!")
-            else:
-                del data["groups"][sel_del_g]
-                save_data(data)
-                st.session_state["success_msg"] = "🗑️ تم حذف الجروب بنجاح!"
-                st.rerun()
-    st.stop()
+# ---------------- التطبيق المستقل الخاص بالجروب الحالي فقط ----------------
 
 current_g_name = st.session_state.current_group
 group_data = data["groups"][current_g_name]
@@ -402,6 +347,7 @@ group_data = data["groups"][current_g_name]
 if "prices" not in group_data: group_data["prices"] = DEFAULT_PRICES
 if "supervisors" not in group_data: group_data["supervisors"] = []
 if "archives" not in group_data: group_data["archives"] = []
+if "chat" not in group_data: group_data["chat"] = []
 
 st.markdown(f"""
     <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 12px 0;">
@@ -409,7 +355,7 @@ st.markdown(f"""
             <span style="font-size: 2.2rem;">🚖</span>
             <div>
                 <h2 style="margin: 0; font-size: 1.25rem; color: #d97706;">{current_g_name}</h2>
-                <span style="font-size: 0.75rem; color: #64748b;">نظام متابعة الكروات والرزق</span>
+                <span style="font-size: 0.75rem; color: #64748b;">نظامك الخاص والمستقل لإدارة الكروات والرزق</span>
             </div>
         </div>
     </div>
@@ -417,11 +363,10 @@ st.markdown(f"""
 
 col_info1, col_info2 = st.columns([2, 1])
 with col_info1:
-    st.caption(f"المستخدم: **{st.session_state.user_name}**")
+    st.caption(f"المستخدم: **{st.session_state.user_name}** | الجروب: **{current_g_name}**")
 with col_info2:
     if st.button("خروج 🚪"):
         st.session_state.authenticated = False
-        st.session_state.role = None
         st.session_state.user_name = None
         st.session_state.current_group = None
         st.rerun()
@@ -448,14 +393,15 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(["📝 تسجيل رزق", "👥 الأعضاء والمشرفين", "📋 سجل الكروات", "📊 الميزان والمالية", "⚙️ إعدادات الجروب"])
-tab1, tab2, tab3, tab4, tab5 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4]
+tabs = st.tabs(["📝 تسجيل رزق", "🚘 الأعضاء والسواق", "👑 إدارة المشرفين", "📋 سجل الكروات", "📊 الميزان والمالية", "💬 محادثة الجروب"])
+tab1, tab2, tab3, tab4, tab5, tab6 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4], tabs[5]
 
+# --- 1. تسجيل رزق ---
 with tab1:
     st.subheader("📝 تسجيل طلب / رزق جديد")
     active_drivers = [d["name"] for d in group_data["drivers"] if not d.get("frozen", False)]
     if not active_drivers:
-        st.warning("لا يوجد سواق نشطون في هذا الجروب حالياً!")
+        st.warning("لا يوجد سواق نشطون في هذا الجروب حالياً! (يرجى إضافة سواق من تبويب الأعضاء والسواق).")
     else:
         with st.form("add_trip_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
@@ -465,99 +411,57 @@ with tab1:
                 receiver = st.selectbox("السائق المستلم:", active_drivers, key="receiver")
                 
             resq_type = st.selectbox("نوع الرزق / الكروة:", list(group_data["prices"].keys()))
+            
+            manual_custom_type = ""
+            if "أخرى" in resq_type:
+                manual_custom_type = st.text_input("✍️ اكتب نوع الرزق اليدوي / التفاصيل الخاصة:")
+                
             default_price = group_data["prices"].get(resq_type, 0)
             trip_price = st.number_input("سعر الكروة (دينار عراقي):", value=int(default_price), step=500)
-            notes = st.text_input("ملاحظات إضافية (اختياري):")
+            notes = st.text_input("ملاحظات إضافية أو حقل فارغ مخصص للتفاصيل:")
             
             submit_trip = st.form_submit_button("➕ تسجيل الرزق الآن", type="primary")
             if submit_trip:
                 if giver == receiver:
                     st.error("⚠️ لا يمكن أن يكون السائق المعطي هو نفسه المستلم!")
                 else:
+                    final_type = f"{resq_type} - {manual_custom_type}" if manual_custom_type else resq_type
                     new_trip = {
                         "id": len(group_data["trips"]) + 1,
                         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "giver": giver,
                         "receiver": receiver,
-                        "type": resq_type,
+                        "type": final_type,
                         "price": float(trip_price),
                         "notes": notes,
                         "added_by": st.session_state.user_name
                     }
                     group_data["trips"].append(new_trip)
                     save_data(data)
-                    st.session_state["success_msg"] = f"✅ تم تسجيل كروة ({resq_type}) بنجاح!"
+                    st.session_state["success_msg"] = f"✅ تم تسجيل الكروة بنجاح!"
                     st.rerun()
 
+# --- 2. الأعضاء والسواق ---
 with tab2:
-    st.subheader("👥 إدارة الأعضاء والمشرفين")
-    col_sup, col_drv = st.columns(2)
-
-    with col_sup:
-        st.markdown("### 👑 إضافة مشرف جديد (مع رقم الهاتف والرمز)")
-        with st.form("add_sup_form", clear_on_submit=True):
-            s_name = st.text_input("اسم المشرف *:")
-            s_phone = st.text_input("رقم موبايل المشرف (لتسجيل الدخول والاستعادة) *:")
-            s_pin = st.text_input("الرمز السري الخاص به (PIN) *:", type="password")
-            sub_s = st.form_submit_button("إضافة وتوثيق المشرف ➕")
-            if sub_s:
-                s_name = s_name.strip()
-                s_phone = s_phone.strip()
-                s_pin = s_pin.strip()
-                if not s_name or not s_phone or not s_pin:
-                    st.error("يرجى ملء كافة حقول المشرف بدقة!")
-                else:
-                    # فحص هل رقم الهاتف مستخدم مسبقاً
-                    phone_taken = (s_phone == str(group_data["phone"])) or any(str(sup.get("phone")) == s_phone for sup in group_data["supervisors"])
-                    if phone_taken:
-                        st.error("رقم الهاتف هذا مسجل مسبقاً لمشرف أو مسؤول آخر في الجروب!")
-                    else:
-                        group_data["supervisors"].append({"name": s_name, "phone": s_phone, "pin": s_pin, "frozen": False})
-                        save_data(data)
-                        st.session_state["success_msg"] = f"✅ تم إضافة المشرف ({s_name}) بنجاح!"
-                        st.rerun()
-                        
-        if group_data["supervisors"]:
-            st.markdown("#### 📋 قائمة المشرفين المسجلين:")
-            df_sup = pd.DataFrame(group_data["supervisors"])
-            df_sup["الحالة"] = df_sup["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
-            st.dataframe(df_sup[["name", "phone", "الحالة"]].rename(columns={"name": "اسم المشرف", "phone": "رقم الهاتف"}), use_container_width=True)
-            
-            sel_s = st.selectbox("اختر المشرف للإدارة:", [s["name"] for s in group_data["supervisors"]])
-            s_obj = next((s for s in group_data["supervisors"] if s["name"] == sel_s), None)
-            col_s1, col_s2 = st.columns(2)
-            with col_s1:
-                if s_obj and st.button("🧊 تجميد/فك تجميد المشرف"):
-                    s_obj["frozen"] = not s_obj.get("frozen", False)
-                    save_data(data)
-                    st.session_state["success_msg"] = "✅ تم تحديث حالة المشرف بنجاح!"
-                    st.rerun()
-            with col_s2:
-                if s_obj and st.button("🗑️ حذف المشرف"):
-                    group_data["supervisors"] = [s for s in group_data["supervisors"] if s["name"] != sel_s]
-                    save_data(data)
-                    st.session_state["success_msg"] = "🗑️ تم حذف المشرف نهائياً!"
-                    st.rerun()
-
-    with col_drv:
-        st.markdown("### 🚘 إضافة سائق للجروب")
-        with st.form("add_d_form", clear_on_submit=True):
-            d_name = st.text_input("اسم السائق الكامل *:")
-            d_phone = st.text_input("رقم الهاتف:")
-            d_car = st.text_input("نوع وموديل السيارة:")
-            d_address = st.text_input("عنوان السكن:")
-            sub_d = st.form_submit_button("إضافة السائق ➕")
-            if sub_d:
-                d_name = d_name.strip()
-                if not d_name:
-                    st.error("يرجى إدخال اسم السائق!")
-                elif d_name in [d["name"] for d in group_data["drivers"]]:
-                    st.error("السائق موجود بالفعل!")
-                else:
-                    group_data["drivers"].append({"name": d_name, "phone": d_phone, "car": d_car, "address": d_address, "frozen": False})
-                    save_data(data)
-                    st.session_state["success_msg"] = f"✅ تم إضافة السائق ({d_name}) بنجاح!"
-                    st.rerun()
+    st.subheader("🚘 إدارة الأعضاء والسواق")
+    with st.form("add_d_form", clear_on_submit=True):
+        st.markdown("##### إضافة سائق جديد للجروب")
+        d_name = st.text_input("اسم السائق الكامل *:")
+        d_phone = st.text_input("رقم الهاتف:")
+        d_car = st.text_input("نوع وموديل السيارة:")
+        d_address = st.text_input("عنوان السكن:")
+        sub_d = st.form_submit_button("إضافة السائق ➕")
+        if sub_d:
+            d_name = d_name.strip()
+            if not d_name:
+                st.error("يرجى إدخال اسم السائق!")
+            elif d_name in [d["name"] for d in group_data["drivers"]]:
+                st.error("السائق موجود بالفعل!")
+            else:
+                group_data["drivers"].append({"name": d_name, "phone": d_phone, "car": d_car, "address": d_address, "frozen": False})
+                save_data(data)
+                st.session_state["success_msg"] = f"✅ تم إضافة السائق ({d_name}) بنجاح!"
+                st.rerun()
 
     st.markdown("---")
     st.subheader("📋 قائمة سواق الجروب")
@@ -566,23 +470,76 @@ with tab2:
         df_d["الحالة"] = df_d["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
         st.dataframe(df_d[["name", "الحالة", "phone", "car", "address"]].rename(columns={"name": "الاسم", "phone": "الهاتف", "car": "السيارة", "address": "السكن"}), use_container_width=True)
         
-        sel_drv_del = st.selectbox("اختر سائق للحذف أو التجميد:", [d["name"] for d in group_data["drivers"]])
+        sel_drv_del = st.selectbox("اختر سائق لإدارته (تجميد أو طرد):", [d["name"] for d in group_data["drivers"]])
         d_obj = next((d for d in group_data["drivers"] if d["name"] == sel_drv_del), None)
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if d_obj and st.button("🧊 تجميد/فك تجميد السائق"):
+            if d_obj and st.button("🧊 تجميد / فك تجميد السائق"):
                 d_obj["frozen"] = not d_obj.get("frozen", False)
                 save_data(data)
-                st.session_state["success_msg"] = "✅ تم تحديث حالة السائق!"
+                st.session_state["success_msg"] = "✅ تم تحديث حالة السائق بنجاح!"
                 st.rerun()
         with col_btn2:
-            if st.button("🗑️ حذف السائق نهائياً"):
+            if st.button("🗑️ طرد / حذف السائق نهائياً"):
                 group_data["drivers"] = [d for d in group_data["drivers"] if d["name"] != sel_drv_del]
                 save_data(data)
-                st.session_state["success_msg"] = "🗑️ تم حذف السائق!"
+                st.session_state["success_msg"] = "🗑️ تم طرد وحذف السائق بنجاح!"
                 st.rerun()
+    else:
+        st.info("لا توجد سواق مضافون حتى الآن.")
 
+# --- 3. إدارة المشرفين ---
 with tab3:
+    st.subheader("👑 إدارة المشرفين وصلاحيات الدخول")
+    with st.form("add_sup_form", clear_on_submit=True):
+        st.markdown("##### إضافة مشرف جديد برقم هاتف ورمز سري")
+        s_name = st.text_input("اسم المشرف *:")
+        s_phone = st.text_input("رقم موبايل المشرف (لتسجيل الدخول والاستعادة) *:")
+        s_pin = st.text_input("الرمز السري الخاص به (PIN) *:", type="password")
+        sub_s = st.form_submit_button("إضافة وتوثيق المشرف ➕")
+        if sub_s:
+            s_name = s_name.strip()
+            s_phone = s_phone.strip()
+            s_pin = s_pin.strip()
+            if not s_name or not s_phone or not s_pin:
+                st.error("يرجى ملء كافة حقول المشرف بدقة!")
+            else:
+                phone_taken = (s_phone == str(group_data["phone"])) or any(str(sup.get("phone")) == s_phone for sup in group_data["supervisors"])
+                if phone_taken:
+                    st.error("رقم الهاتف هذا مسجل مسبقاً لمشرف أو مسؤول آخر!")
+                else:
+                    group_data["supervisors"].append({"name": s_name, "phone": s_phone, "pin": s_pin, "frozen": False})
+                    save_data(data)
+                    st.session_state["success_msg"] = f"✅ تم إضافة المشرف ({s_name}) بنجاح!"
+                    st.rerun()
+
+    st.markdown("---")
+    st.subheader("📋 قائمة المشرفين المسجلين بالجروب")
+    if group_data["supervisors"]:
+        df_sup = pd.DataFrame(group_data["supervisors"])
+        df_sup["الحالة"] = df_sup["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
+        st.dataframe(df_sup[["name", "phone", "الحالة"]].rename(columns={"name": "اسم المشرف", "phone": "رقم الهاتف"}), use_container_width=True)
+        
+        sel_s = st.selectbox("اختر المشرف لإدارته:", [s["name"] for s in group_data["supervisors"]])
+        s_obj = next((s for s in group_data["supervisors"] if s["name"] == sel_s), None)
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            if s_obj and st.button("🧊 تجميد / فك تجميد المشرف"):
+                s_obj["frozen"] = not s_obj.get("frozen", False)
+                save_data(data)
+                st.session_state["success_msg"] = "✅ تم تحديث حالة المشرف بنجاح!"
+                st.rerun()
+        with col_s2:
+            if s_obj and st.button("🗑️ طرد / حذف المشرف نهائياً"):
+                group_data["supervisors"] = [s for s in group_data["supervisors"] if s["name"] != sel_s]
+                save_data(data)
+                st.session_state["success_msg"] = "🗑️ تم طرد وحذف المشرف بنجاح!"
+                st.rerun()
+    else:
+        st.info("لا توجد مشرفون فرعيون مضافون حالياً.")
+
+# --- 4. سجل الكروات ---
+with tab4:
     st.subheader("📜 سجل الكروات التفصيلي")
     if not group_data["trips"]:
         st.info("لا توجد كروات مسجلة لهذا الجروب.")
@@ -600,7 +557,8 @@ with tab3:
             st.session_state["success_msg"] = "❌ تم حذف الكروة بنجاح!"
             st.rerun()
 
-with tab4:
+# --- 5. الميزان والمالية ---
+with tab5:
     st.subheader("📊 ميزان العدالة وحسابات الفلوس")
     if group_data["drivers"]:
         balances = {d["name"]: {"given_count": 0, "received_count": 0, "given_money": 0.0, "received_money": 0.0} for d in group_data["drivers"]}
@@ -636,21 +594,33 @@ with tab4:
         wa_text += "-----------------------------------\n"
         st.text_area("نص الواتساب للجروب:", wa_text, height=140)
         st.download_button("📥 تحميل ميزان الجروب (Excel)", df_sum.to_csv(index=False, encoding='utf-8-sig'), "ميزان_الجروب.csv", "text/csv")
+    else:
+        st.info("لا توجد بيانات سواق لعرض الميزان.")
 
-with tab5:
-    st.subheader("⚙️ إعدادات وتعديل هاتف ورمز الجروب")
-    with st.form("update_group_settings"):
-        new_g_phone = st.text_input("تعديل رقم هاتف الجروب:", value=group_data["phone"])
-        new_g_pin = st.text_input("تعديل الرمز السري (PIN):", value=group_data["pin"], type="password")
-        sub_gp = st.form_submit_button("حفظ التغييرات 💾")
-        if sub_gp:
-            new_g_phone = new_g_phone.strip()
-            new_g_pin = new_g_pin.strip()
-            if not new_g_phone or len(new_g_pin) < 4:
-                st.error("يرجى التأكد من صحة رقم الهاتف وأن الرمز لا يقل عن 4 أرقام!")
-            else:
-                group_data["phone"] = new_g_phone
-                group_data["pin"] = new_g_pin
+# --- 6. محادثة الجروب ---
+with tab6:
+    st.subheader(f"💬 محادثة جروب {current_g_name}")
+    st.caption("نافذة محادثة خاصة بمسؤول الجروب والمشرفين التابعين له.")
+    
+    chat_box = st.container(height=320)
+    with chat_box:
+        if group_data["chat"]:
+            for msg in group_data["chat"]:
+                st.markdown(f"**💬 {msg['sender']}** ({msg['time']}):<br>{msg['text']}", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("لا توجد رسائل دردشة في هذا الجروب حتى الآن.")
+            
+    with st.form("group_chat_form", clear_on_submit=True):
+        group_msg_text = st.text_input("اكتب رسالة للزملاء في الجروب:")
+        sub_g_chat = st.form_submit_button("إرسال رسالة 📨", type="primary")
+        if sub_g_chat:
+            group_msg_text = group_msg_text.strip()
+            if group_msg_text:
+                group_data["chat"].append({
+                    "sender": st.session_state.user_name,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "text": group_msg_text
+                })
                 save_data(data)
-                st.session_state["success_msg"] = "✅ تم تحديث بيانات الجروب بنجاح!"
                 st.rerun()
