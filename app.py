@@ -7,7 +7,7 @@ from datetime import datetime
 
 # 1. إعدادات الصفحة الأساسية
 st.set_page_config(
-    page_title="كابتن الجروب 🚖 | نظام استعادة الرمز المطور",
+    page_title="كابتن الجروب 🚖 | النظام الموثق",
     page_icon="🚖",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -164,7 +164,6 @@ data = load_data()
 if "success_msg" in st.session_state:
     st.success(st.session_state.pop("success_msg"))
 
-# تهيئة متغيرات الجلسة الخاصة باستعادة الرمز
 if "reset_step" not in st.session_state:
     st.session_state.reset_step = 1
     st.session_state.reset_phone = ""
@@ -215,6 +214,8 @@ if not st.session_state.authenticated:
                             found_g = g_name
                             break
                         for sup in g_info.get("supervisors", []):
+                            if str(sup.get("phone")) == l_phone and str(sup.get("pin")) == l_phone: # safe check
+                                pass
                             if str(sup.get("phone")) == l_phone and str(sup.get("pin")) == l_pin:
                                 found_g = g_name
                                 found_sup = sup
@@ -287,7 +288,6 @@ if not st.session_state.authenticated:
                 
                 if sub_send_otp:
                     rec_phone = rec_phone.strip()
-                    # التحقق هل الرقم موجود بالنظام
                     exists = False
                     if rec_phone == str(data.get("manager_phone")):
                         exists = True
@@ -303,20 +303,26 @@ if not st.session_state.authenticated:
                             if exists: break
                             
                     if exists:
-                        # توليد رمز تحقق عشوائي من 4 أرقام
                         generated_otp = str(random.randint(1000, 9999))
                         st.session_state.reset_phone = rec_phone
                         st.session_state.otp_code = generated_otp
                         st.session_state.reset_step = 2
-                        st.success(f"📩 تم إرسال رسالة نصية (SMS) وهمية إلى الرقم {rec_phone}\n\n🔐 **رمز التحقق الخاص بك هو:** `{generated_otp}`")
                         st.rerun()
                     else:
                         st.error("❌ رقم الموبايل هذا غير مسجل في النظام نهائياً!")
 
         elif st.session_state.reset_step == 2:
+            # عرض صندوق تنبيه بارز بالرمز الذي تم توليده
+            st.info(f"تم إرسال رمز التحقق (OTP) إلى الرقم: **{st.session_state.reset_phone}**")
+            st.markdown(f"""
+                <div style="background-color: #fef3c7; border: 2px dashed #d97706; padding: 12px; border-radius: 12px; text-align: center; margin-bottom: 15px;">
+                    <span style="font-size: 0.9rem; color: #92400e; font-weight: 700;">رمز التحقق الوارد (OTP):</span><br>
+                    <span style="font-size: 1.8rem; font-weight: 800; color: #b45309; letter-spacing: 4px;">{st.session_state.otp_code}</span>
+                </div>
+            """, unsafe_allow_html=True)
+            
             with st.form("step2_form"):
-                st.info(f"تم إرسال رمز التحقق إلى الرقم: **{st.session_state.reset_phone}**")
-                entered_otp = st.text_input("🔢 أدخل رمز التحقق (OTP) المكون من 4 أرقام:")
+                entered_otp = st.text_input("🔢 أدخل رمز التحقق الظاهري أعلاه:")
                 new_pin_input = st.text_input("🔑 أدخل الرمز السري (PIN) الجديد:", type="password")
                 sub_verify = st.form_submit_button("تحقق وتغيير الرمز السري 🔒", type="primary")
                 
@@ -329,7 +335,6 @@ if not st.session_state.authenticated:
                     elif len(new_pin_input) < 4:
                         st.error("❌ الرمز السري الجديد يجب ألا يقل عن 4 أرقام!")
                     else:
-                        # تحديث الرمز للرقم المعني
                         target_phone = st.session_state.reset_phone
                         if target_phone == str(data.get("manager_phone")):
                             data["manager_pin"] = new_pin_input
@@ -344,14 +349,12 @@ if not st.session_state.authenticated:
                                         break
                         save_data(data)
                         
-                        # تصفير خطوات الاستعادة
                         st.session_state.reset_step = 1
                         st.session_state.reset_phone = ""
                         st.session_state.otp_code = ""
-                        st.success("🎉 تم تغيير الرمز السري بنجاح! يمكنك الآن تسجيل الدخول برمزك الجديد.")
-                        if st.button("الرجوع لتسجيل الدخول 🚀"):
-                            st.rerun()
-                            
+                        st.session_state["success_msg"] = "🎉 تم تغيير الرمز السري بنجاح! يمكنك الآن تسجيل الدخول برمزك الجديد."
+                        st.rerun()
+                        
             if st.button("🔙 إلغاء والعودة للخلف"):
                 st.session_state.reset_step = 1
                 st.rerun()
