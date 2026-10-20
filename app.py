@@ -3,8 +3,9 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
+import streamlit.components.v1 as components
 
-# 1. إعدادات الصفحة الأساسية مع أيقونة التكسي
+# 1. إعدادات الصفحة الأساسية
 st.set_page_config(
     page_title="كابتن الجروب 🚖 | نظام الكروات",
     page_icon="🚖",
@@ -12,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تصميم الواجهة العصرية وإضافة شريط تنزيل التطبيق
+# 2. تصميم الواجهة العصرية
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
@@ -40,17 +41,6 @@ st.markdown("""
         padding-left: 0.6rem !important;
         padding-right: 0.6rem !important;
         max-width: 100% !important;
-    }
-
-    /* شريط التثبيت بأعلى الشاشة */
-    .install-banner {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        color: #ffffff;
-        padding: 12px 15px;
-        border-radius: 14px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
-        border: 1px solid #334155;
     }
 
     /* تصميم البطاقات والنماذج */
@@ -128,6 +118,49 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# 📱 كود التثبيت المباشر بالـ JavaScript
+pwa_installer_code = """
+<script>
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('installAppBtn');
+  if(btn) { btn.style.display = 'block'; }
+});
+
+function triggerInstall() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      deferredPrompt = null;
+    });
+  } else {
+    alert("📲 لتثبيت التطبيق فوراً:\n1. اضغط علامة الاختيارات (⋮) بأعلى المتصفح.\n2. اختر (الإضافة إلى الشاشة الرئيسية).");
+  }
+}
+</script>
+
+<div style="text-align: center; margin-bottom: 10px;">
+    <button id="installAppBtn" onclick="triggerInstall()" style="
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: white;
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        font-weight: bold;
+        font-size: 0.95rem;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 12px;
+        width: 100%;
+        box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+        cursor: pointer;
+    ">
+        📲 اضغط هنا لتثبيت تطبيق كابتن الجروب فوراً
+    </button>
+</div>
+"""
+components.html(pwa_installer_code, height=65)
+
 DATA_FILE = "drivers_data.json"
 
 DEFAULT_PRICES = {
@@ -185,14 +218,6 @@ def save_data(data):
 
 data = load_data()
 
-# 📱 شريط إرشادي علوي لتنزيل التطبيق
-with st.expander("📲 اضغط هنا لتثبيت التطبيق على الشاشة الرئيسية لموبايلك", expanded=False):
-    st.markdown("""
-    **كيف تحفظ التطبيق كبرنامج بموبايلك؟**
-    * **موبايلات أندرويد (Chrome):** اضغط على نقاط المتصفح الثلاث (⋮) بالأعلى واختار **"الإضافة إلى الشاشة الرئيسية"**.
-    * **موبايلات آيفون (Safari):** اضغط على زر المشاركة الأسفل ( 📤 ) واختار **"إضافة إلى الشاشة الرئيسية"**.
-    """)
-
 # ---------------- 🔒 شاشة تسجيل الدخول العصرية ----------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -201,7 +226,7 @@ if "authenticated" not in st.session_state:
 
 if not st.session_state.authenticated:
     st.markdown("""
-        <div style="text-align: center; padding: 15px 0 10px 0;">
+        <div style="text-align: center; padding: 10px 0 10px 0;">
             <div style="font-size: 3.8rem; line-height: 1;">🚖</div>
             <h2 style="color: #d97706; margin-top: 8px; font-weight: 800;">كابتن الجروب</h2>
             <p style="color: #64748b; font-size: 0.9rem;">النظام الذكي لإدارة وميزان كروات التكسي</p>
@@ -239,7 +264,7 @@ if not st.session_state.authenticated:
 if "success_msg" in st.session_state:
     st.success(st.session_state.pop("success_msg"))
 
-# هيدر التطبيق وشعار التكسي
+# هيدر التطبيق
 st.markdown("""
     <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 10px 0;">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -343,7 +368,6 @@ with tab2:
     if st.session_state.role == "manager":
         col_sup, col_drv = st.columns(2)
 
-        # العمود الأول: إدارة المشرفين
         with col_sup:
             st.markdown("### 👑 1. إدارة المشرفين")
             with st.form("add_supervisor_form", clear_on_submit=True):
@@ -404,7 +428,6 @@ with tab2:
             else:
                 st.info("لا يوجد مشرفون مضافون حالياً.")
 
-        # العمود الثاني: إدارة الاعضاء والسواق
         with col_drv:
             st.markdown("### 🚘 2. إضافة سائق جديد")
             with st.form("add_driver_form", clear_on_submit=True):
