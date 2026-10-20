@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import random
 from datetime import datetime
 
 # 1. إعدادات الصفحة الأساسية
 st.set_page_config(
-    page_title="كابتن الجروب 🚖 | نظام الحسابات واستعادة الرمز",
+    page_title="كابتن الجروب 🚖 | نظام استعادة الرمز المطور",
     page_icon="🚖",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -79,9 +80,9 @@ st.markdown("""
     
     button[data-baseweb="tab"] {
         font-family: 'Tajawal', sans-serif !important;
-        font-size: 0.85rem !important;
+        font-size: 0.82rem !important;
         font-weight: 700 !important;
-        padding: 8px 10px !important;
+        padding: 8px 8px !important;
         border-radius: 10px !important;
         color: #475569 !important;
     }
@@ -163,7 +164,13 @@ data = load_data()
 if "success_msg" in st.session_state:
     st.success(st.session_state.pop("success_msg"))
 
-# ---------------- 🔒 شاشة تسجيل الدخول أو التسجيل أو الاستعادة ----------------
+# تهيئة متغيرات الجلسة الخاصة باستعادة الرمز
+if "reset_step" not in st.session_state:
+    st.session_state.reset_step = 1
+    st.session_state.reset_phone = ""
+    st.session_state.otp_code = ""
+
+# ---------------- 🔒 شاشة تسجيل الدخول أو التسجيل أو استعادة الرمز ----------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.role = None
@@ -179,7 +186,7 @@ if not st.session_state.authenticated:
         </div>
     """, unsafe_allow_html=True)
     
-    tab_auth1, tab_auth2, tab_auth3 = st.tabs(["🔑 تسجيل الدخول", "✨ إنشاء حساب جديد", "🔄 نسيت الرمز؟"])
+    tab_auth1, tab_auth2, tab_auth3 = st.tabs(["🔑 تسجيل الدخول", "✨ حساب جديد", "🔄 استعادة الرمز"])
     
     # 1. تسجيل الدخول
     with tab_auth1:
@@ -269,39 +276,85 @@ if not st.session_state.authenticated:
                         st.session_state["success_msg"] = f"🎉 تم إنشاء حساب جروب ({r_gname}) بنجاح!"
                         st.rerun()
 
-    # 3. استعادة الرمز المفقود
+    # 3. استعادة الرمز المطور عبر إرسال رمز تحقق وتغيير الرمز
     with tab_auth3:
-        with st.form("recover_form"):
-            st.markdown("##### استعادة الرمز السري عبر رقم الموبايل")
-            rec_phone = st.text_input("📞 أدخل رقم الموبايل المسجل به حسابك:")
-            sub_rec = st.form_submit_button("بحث واستعادة الرمز السري 🔍")
-            
-            if sub_rec:
-                rec_phone = rec_phone.strip()
-                found_pin = None
-                found_owner = None
+        st.markdown("##### 🔄 استعادة وتغيير الرمز السري عبر رقم الموبايل")
+        
+        if st.session_state.reset_step == 1:
+            with st.form("step1_form"):
+                rec_phone = st.text_input("📞 أدخل رقم الموبايل المسجل في حسابك:")
+                sub_send_otp = st.form_submit_button("إرسال رمز التحقق إلى الرقم 📩", type="primary")
                 
-                if rec_phone == str(data.get("manager_phone")):
-                    found_pin = data.get("manager_pin")
-                    found_owner = "المدير العام"
-                else:
-                    for g_name, g_info in data["groups"].items():
-                        if str(g_info.get("phone")) == rec_phone:
-                            found_pin = g_info.get("pin")
-                            found_owner = f"مسؤول جروب: {g_name}"
-                            break
-                        for sup in g_info.get("supervisors", []):
-                            if str(sup.get("phone")) == rec_phone:
-                                found_pin = sup.get("pin")
-                                found_owner = f"المشرف: {sup['name']} (في جروب {g_name})"
+                if sub_send_otp:
+                    rec_phone = rec_phone.strip()
+                    # التحقق هل الرقم موجود بالنظام
+                    exists = False
+                    if rec_phone == str(data.get("manager_phone")):
+                        exists = True
+                    else:
+                        for g_info in data["groups"].values():
+                            if str(g_info.get("phone")) == rec_phone:
+                                exists = True
                                 break
-                        if found_pin:
-                            break
+                            for sup in g_info.get("supervisors", []):
+                                if str(sup.get("phone")) == rec_phone:
+                                    exists = True
+                                    break
+                            if exists: break
                             
-                if found_pin:
-                    st.success(f"✅ تم إيجاد الحساب لـ ({found_owner})!\n\n🔑 **الرمز السري الخاص بك هو:** `{found_pin}`")
-                else:
-                    st.error("❌ رقم الموبايل هذا غير مسجل في النظام نهائياً!")
+                    if exists:
+                        # توليد رمز تحقق عشوائي من 4 أرقام
+                        generated_otp = str(random.randint(1000, 9999))
+                        st.session_state.reset_phone = rec_phone
+                        st.session_state.otp_code = generated_otp
+                        st.session_state.reset_step = 2
+                        st.success(f"📩 تم إرسال رسالة نصية (SMS) وهمية إلى الرقم {rec_phone}\n\n🔐 **رمز التحقق الخاص بك هو:** `{generated_otp}`")
+                        st.rerun()
+                    else:
+                        st.error("❌ رقم الموبايل هذا غير مسجل في النظام نهائياً!")
+
+        elif st.session_state.reset_step == 2:
+            with st.form("step2_form"):
+                st.info(f"تم إرسال رمز التحقق إلى الرقم: **{st.session_state.reset_phone}**")
+                entered_otp = st.text_input("🔢 أدخل رمز التحقق (OTP) المكون من 4 أرقام:")
+                new_pin_input = st.text_input("🔑 أدخل الرمز السري (PIN) الجديد:", type="password")
+                sub_verify = st.form_submit_button("تحقق وتغيير الرمز السري 🔒", type="primary")
+                
+                if sub_verify:
+                    entered_otp = entered_otp.strip()
+                    new_pin_input = new_pin_input.strip()
+                    
+                    if entered_otp != st.session_state.otp_code:
+                        st.error("❌ رمز التحقق غير صحيح!")
+                    elif len(new_pin_input) < 4:
+                        st.error("❌ الرمز السري الجديد يجب ألا يقل عن 4 أرقام!")
+                    else:
+                        # تحديث الرمز للرقم المعني
+                        target_phone = st.session_state.reset_phone
+                        if target_phone == str(data.get("manager_phone")):
+                            data["manager_pin"] = new_pin_input
+                        else:
+                            for g_info in data["groups"].values():
+                                if str(g_info.get("phone")) == target_phone:
+                                    g_info["pin"] = new_pin_input
+                                    break
+                                for sup in g_info.get("supervisors", []):
+                                    if str(sup.get("phone")) == target_phone:
+                                        sup["pin"] = new_pin_input
+                                        break
+                        save_data(data)
+                        
+                        # تصفير خطوات الاستعادة
+                        st.session_state.reset_step = 1
+                        st.session_state.reset_phone = ""
+                        st.session_state.otp_code = ""
+                        st.success("🎉 تم تغيير الرمز السري بنجاح! يمكنك الآن تسجيل الدخول برمزك الجديد.")
+                        if st.button("الرجوع لتسجيل الدخول 🚀"):
+                            st.rerun()
+                            
+            if st.button("🔙 إلغاء والعودة للخلف"):
+                st.session_state.reset_step = 1
+                st.rerun()
     st.stop()
 
 # ---------------- بداية التطبيق بعد تسجيل الدخول بنجاح ----------------
