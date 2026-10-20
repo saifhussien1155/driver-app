@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime
 
-# 1. إعدادات الصفحة الأساسية للتجاوب مع الموبايل وإخفاء القائمة الجانبية
+# 1. إعدادات الصفحة الأساسية للتجاوب مع الموبايل
 st.set_page_config(
     page_title="نظام متابعة كروات الجروب",
     page_icon="🚗",
@@ -12,54 +12,58 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تحسين مظهر الواجهة للغة العربية والتحكم الكامل بأبعاد الموبايل
+# 2. تحسين مظهر الواجهة وإلغاء القائمة الجانبية تماماً لمنع خربطة النصوص على الموبايل
 st.markdown("""
     <style>
-    /* الاتجاه من اليمين لليسار والخطوط */
+    /* اتجاه اللغة العربية والخطوط */
     html, body, [class*="css"], .stApp {
         direction: rtl;
         text-align: right;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
 
-    /* تصغير العناوين لتناسب شاشات الموبايل تماماً وتمنع انكسار الكلمات عمودياً */
-    h1 {
-        font-size: 1.3rem !important;
-        line-height: 1.3 !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        margin-bottom: 0.5rem !important;
+    /* إلغاء القائمة الجانبية تماماً لمنع انضغاط الكلمات عمودياً */
+    [data-testid="stSidebar"] {
+        display: none !important;
     }
-    h2 {
-        font-size: 1.1rem !important;
-        line-height: 1.3 !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-    }
-    h3, h4 {
-        font-size: 1.0rem !important;
-        line-height: 1.3 !important;
-        white-space: normal !important;
-        word-break: break-word !important;
+    [data-testid="collapsedControl"] {
+        display: none !important;
     }
 
-    /* تنظيم الهوامش والمسافات الجانبية للموبايل */
+    /* تصغير العناوين لتناسب شاشات الموبايل تماماً */
+    h1 {
+        font-size: 1.2rem !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        margin-bottom: 0.3rem !important;
+    }
+    h2 {
+        font-size: 1.05rem !important;
+        line-height: 1.3 !important;
+    }
+    h3, h4 {
+        font-size: 0.95rem !important;
+        line-height: 1.3 !important;
+    }
+
+    /* تنظيف الهوامش الزائدة على شاشة الهاتف */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0.8rem !important;
         padding-bottom: 1rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+        padding-left: 0.4rem !important;
+        padding-right: 0.4rem !important;
         max-width: 100% !important;
     }
 
-    /* جعل التبويبات تنزل بشكل متناسق ومريح بدون تداخل */
+    /* جعل التبويبات (Tabs) تنزل بانتظام وبدون تداخل */
     div[data-baseweb="tab-list"] {
         gap: 2px !important;
         flex-wrap: wrap !important;
     }
     button[data-baseweb="tab"] {
-        font-size: 0.85rem !important;
-        padding: 5px 8px !important;
+        font-size: 0.82rem !important;
+        padding: 5px 7px !important;
     }
 
     /* أزرار الإدخال والتنفيذ */
@@ -69,7 +73,7 @@ st.markdown("""
         font-weight: bold;
     }
 
-    /* إخفاء القوائم والهوامش الزائدة من الأعلى والأسفل */
+    /* إخفاء القوائم والأشرطة الزائدة */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
@@ -99,7 +103,7 @@ def load_data():
                     data["drivers"] = []
                 if "trips" not in data:
                     data["trips"] = []
-                # تحديث هيكل بيانات السواق القديمة لتدعم الميزات الجديدة
+                # تحديث هيكل بيانات السواق
                 updated_drivers = []
                 for d in data["drivers"]:
                     if isinstance(d, str):
@@ -127,14 +131,16 @@ def save_data(data):
 
 data = load_data()
 
-# الشريط الجانبي لتحديد الصلاحية
-st.sidebar.title("🔐 الصلاحية")
-role = st.sidebar.radio("دخول كـ:", ["مشرف (Supervisor)", "مدير عام (General Manager)"])
+# ---------------- الهيدر الرئيسي واختيار الصلاحية أعلى الصفحة ----------------
+col_title, col_role = st.columns([1.8, 1.2])
+with col_title:
+    st.title("🚗 كروات الجروب")
+with col_role:
+    role = st.selectbox("🔐 الصلاحية:", ["مشرف", "مدير عام"])
 
-st.title("🚗 نظام متابعة وحسابات كروات الجروب")
-st.caption("تطبيق الموبايل الموحد للمدير العام والمشرفين")
+st.markdown("---")
 
-# التبويبات الرئيسية
+# ---------------- التبويبات الرئيسية ----------------
 tab1, tab2, tab3, tab4 = st.tabs([
     "📝 تسجيل رزق", 
     "👥 إدارة السواق", 
@@ -146,11 +152,10 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     st.subheader("تسجيل طلب / رزق جديد")
     
-    # فلترة السواق النشطين فقط (غير المجمدين)
     active_drivers = [d["name"] for d in data["drivers"] if not d.get("frozen", False)]
     
     if not active_drivers:
-        st.warning("لا يوجد سواق نشطون حالياً! (إما القائمة فارغة أو جميع السواق مجمدون).")
+        st.warning("لا يوجد سواق نشطون حالياً! (يرجى إضافة سواق من تبويب إدارة السواق).")
     else:
         col1, col2 = st.columns(2)
         with col1:
@@ -182,9 +187,8 @@ with tab1:
 with tab2:
     st.subheader("👥 إدارة الأعضاء والتفاصيل والعقوبات")
     
-    # 1. استيراد سواق من ملف Excel أو CSV
-    with st.expander("📁 1. استيراد ورَفْع سواق دفعة واحدة (Excel/CSV)"):
-        uploaded_file = st.file_uploader("اختر ملف Excel أو CSV احترافي:", type=["xlsx", "xls", "csv"])
+    with st.expander("📁 1. استيراد ورَفْع سواق (Excel/CSV)"):
+        uploaded_file = st.file_uploader("اختر ملف Excel أو CSV:", type=["xlsx", "xls", "csv"])
         if uploaded_file is not None:
             try:
                 if uploaded_file.name.endswith('.csv'):
@@ -192,7 +196,6 @@ with tab2:
                 else:
                     df_import = pd.read_excel(uploaded_file)
                 
-                # البحث عن العمود الذي يحتوي الاسم
                 name_col = None
                 for col in df_import.columns:
                     if "اسم" in str(col) or "name" in str(col).lower() or "سائق" in str(col):
@@ -227,8 +230,7 @@ with tab2:
             except Exception as e:
                 st.error(f"حدث خطأ أثناء قراءة الملف: {e}")
 
-    # 2. إضافة سائق يدوي مع التفاصيل
-    with st.expander("➕ 2. إضافة سائق جديد يدوياً مع التفاصيل"):
+    with st.expander("➕ 2. إضافة سائق جديد يدوياً"):
         with st.form("add_driver_form"):
             new_name = st.text_input("اسم السائق الكامل *:")
             new_phone = st.text_input("رقم الهاتف:")
@@ -262,7 +264,6 @@ with tab2:
         all_driver_names = [d["name"] for d in data["drivers"]]
         selected_d = st.selectbox("اختر السائق للتعديل أو التجميد:", all_driver_names)
         
-        # إيجاد السائق المحدد
         driver_obj = next((d for d in data["drivers"] if d["name"] == selected_d), None)
         
         if driver_obj:
@@ -271,23 +272,23 @@ with tab2:
             with col_f1:
                 is_frozen = driver_obj.get("frozen", False)
                 if is_frozen:
-                    st.warning("⚠️ هذا السائق مجمد حالياً (مخفي من القوائم النشطة).")
+                    st.warning("⚠️ هذا السائق مجمد حالياً.")
                     if st.button("🔥 فك تجميد السائق"):
                         driver_obj["frozen"] = False
                         save_data(data)
-                        st.success("✅ تم فك تجميد السائق وإعادته للنشاط!")
+                        st.success("✅ تم فك تجميد السائق!")
                         st.rerun()
                 else:
                     st.info("✅ هذا السائق نشط حالياً.")
                     if st.button("🧊 تجميد السائق (عقوبة)"):
                         driver_obj["frozen"] = True
                         save_data(data)
-                        st.warning("تم تجميد السائق بنجاح وإخفاؤه من قوائم تسجيل الكروات.")
+                        st.warning("تم تجميد السائق بنجاح!")
                         st.rerun()
                         
             with col_f2:
-                if role == "مدير عام (General Manager)":
-                    if st.button("🗑️ حذف السائق نهائياً من النظام"):
+                if role == "مدير عام":
+                    if st.button("🗑️ حذف السائق نهائياً"):
                         data["drivers"] = [d for d in data["drivers"] if d["name"] != selected_d]
                         save_data(data)
                         st.success("تم حذف السائق نهائياً.")
@@ -324,12 +325,11 @@ with tab3:
         })
         st.dataframe(df_trips_display, use_container_width=True)
         
-        # إلغاء / حذف كروة
         st.markdown("---")
         st.write("❌ **إلغاء أو حذف كروة خطأ:**")
         trip_ids = [t["id"] for t in data["trips"]]
         selected_trip_id = st.selectbox("اختر رقم الكروة (ت) للحذف:", trip_ids)
-        if st.button("حذف الكروة المحددة", type="secondary"):
+        if st.button("حذف الكروة المحددة"):
             data["trips"] = [t for t in data["trips"] if t["id"] != selected_trip_id]
             save_data(data)
             st.success(f"تم حذف الكروة رقم {selected_trip_id} بنجاح!")
@@ -357,7 +357,7 @@ with tab4:
             name = d["name"]
             given = balances[name]["given"]
             received = balances[name]["received"]
-            net = given - received  # صافي الميزان
+            net = given - received
             status = "🧊 مجمد" if d.get("frozen", False) else "✅ نشط"
             summary_data.append({
                 "اسم السائق": name,
@@ -370,7 +370,6 @@ with tab4:
         df_summary = pd.DataFrame(summary_data)
         st.dataframe(df_summary, use_container_width=True)
         
-        # تصدير تقارير Excel/CSV
         st.markdown("---")
         st.subheader("📥 تصدير التقارير إلى Excel / CSV")
         
