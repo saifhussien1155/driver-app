@@ -1,12 +1,84 @@
 import streamlit as st
+import pandas as pd
 import json
 import os
-import pandas as pd
 from datetime import datetime
+
+# 1. إعدادات الصفحة الأساسية للتجاوب مع الموبايل وإخفاء القائمة الجانبية
+st.set_page_config(
+    page_title="نظام متابعة كروات الجروب",
+    page_icon="🚗",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# 2. تحسين مظهر الواجهة للغة العربية والتحكم الكامل بأبعاد الموبايل
+st.markdown("""
+    <style>
+    /* الاتجاه من اليمين لليسار والخطوط */
+    html, body, [class*="css"], .stApp {
+        direction: rtl;
+        text-align: right;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* تصغير العناوين لتناسب شاشات الموبايل تماماً وتمنع انكسار الكلمات عمودياً */
+    h1 {
+        font-size: 1.3rem !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        margin-bottom: 0.5rem !important;
+    }
+    h2 {
+        font-size: 1.1rem !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+    h3, h4 {
+        font-size: 1.0rem !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+
+    /* تنظيم الهوامش والمسافات الجانبية للموبايل */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        max-width: 100% !important;
+    }
+
+    /* جعل التبويبات تنزل بشكل متناسق ومريح بدون تداخل */
+    div[data-baseweb="tab-list"] {
+        gap: 2px !important;
+        flex-wrap: wrap !important;
+    }
+    button[data-baseweb="tab"] {
+        font-size: 0.85rem !important;
+        padding: 5px 8px !important;
+    }
+
+    /* أزرار الإدخال والتنفيذ */
+    .stButton>button {
+        width: 100%;
+        border-radius: 8px;
+        font-weight: bold;
+    }
+
+    /* إخفاء القوائم والهوامش الزائدة من الأعلى والأسفل */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
 
 DATA_FILE = "drivers_data.json"
 
-# أنواع الرزق والطلبات
+# أنواع الكروات والرزق
 RESQ_TYPES = [
     "كروة كاملة",
     "نفر",
@@ -17,296 +89,306 @@ RESQ_TYPES = [
     "كروة مرجع"
 ]
 
-# تحسين مظهر الواجهة لدعم اللغة العربية والاتجاه من اليمين لليسار (RTL)
-st.set_page_config(page_title="نظام كروات الجروب", page_icon="🚗", layout="centered")
-
-st.markdown("""
-    <style>
-    body, div, input, select, button {
-        direction: rtl;
-        text-align: right;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    .stApp {
-        direction: rtl;
-    }
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        font-weight: bold;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# تحميل البيانات
+# تحميل البيانات المخزنة
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if "drivers" not in data: data["drivers"] = []
-                if "frozen_drivers" not in data: data["frozen_drivers"] = []
-                if "trips" not in data: data["trips"] = []
-                if "driver_info" not in data: data["driver_info"] = {}
+                if "drivers" not in data:
+                    data["drivers"] = []
+                if "trips" not in data:
+                    data["trips"] = []
+                # تحديث هيكل بيانات السواق القديمة لتدعم الميزات الجديدة
+                updated_drivers = []
+                for d in data["drivers"]:
+                    if isinstance(d, str):
+                        updated_drivers.append({"name": d, "phone": "", "car": "", "address": "", "frozen": False})
+                    elif isinstance(d, dict):
+                        if "frozen" not in d:
+                            d["frozen"] = False
+                        if "phone" not in d:
+                            d["phone"] = ""
+                        if "car" not in d:
+                            d["car"] = ""
+                        if "address" not in d:
+                            d["address"] = ""
+                        updated_drivers.append(d)
+                data["drivers"] = updated_drivers
                 return data
         except Exception:
-            pass
-    return {"drivers": [], "frozen_drivers": [], "trips": [], "driver_info": {}}
+            return {"drivers": [], "trips": []}
+    return {"drivers": [], "trips": []}
 
 # حفظ البيانات
 def save_data(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 data = load_data()
 
+# الشريط الجانبي لتحديد الصلاحية
+st.sidebar.title("🔐 الصلاحية")
+role = st.sidebar.radio("دخول كـ:", ["مشرف (Supervisor)", "مدير عام (General Manager)"])
+
 st.title("🚗 نظام متابعة وحسابات كروات الجروب")
-st.write("تطبيق الموبايل الموحد للمدير العام والمشرفين")
+st.caption("تطبيق الموبايل الموحد للمدير العام والمشرفين")
 
-# شريط اختيار حساب المستخدم
-role = st.sidebar.selectbox("تسجيل الدخول كـ:", ["👷 مشرف (Supervisor)", "👑 مدير عام (General Manager)"])
-st.sidebar.success(f"مرحباً بك بصلاحية: {role}")
-
-# تبويبات التنقل الرئيسية
+# التبويبات الرئيسية
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📝 تسجيل رزق",
-    "👥 إدارة السواق والتفاصيل",
-    "📋 سجل الرزق التفصيلي",
+    "📝 تسجيل رزق", 
+    "👥 إدارة السواق", 
+    "📋 سجل الرزق", 
     "📊 الملخص والتقارير"
 ])
 
-# السواق النشطون فقط (غير المجمدين) لتسجيل الكروات
-active_drivers = [d for d in data["drivers"] if d not in data.get("frozen_drivers", [])]
-
-# -------------------------------------------------------------
-# التبويب الأول: تسجيل رزق جديد
-# -------------------------------------------------------------
+# --- التبويب الأول: تسجيل رزق جديد ---
 with tab1:
     st.subheader("تسجيل طلب / رزق جديد")
+    
+    # فلترة السواق النشطين فقط (غير المجمدين)
+    active_drivers = [d["name"] for d in data["drivers"] if not d.get("frozen", False)]
+    
     if not active_drivers:
         st.warning("لا يوجد سواق نشطون حالياً! (إما القائمة فارغة أو جميع السواق مجمدون).")
     else:
         col1, col2 = st.columns(2)
         with col1:
-            d_from = st.selectbox("السائق الذي نزل رزقه:", active_drivers, key="from_driver")
+            giver = st.selectbox("السائق المعطي (صاحب الكروة):", active_drivers, key="giver")
         with col2:
-            d_to = st.selectbox("السائق الذي أخذ الرزق:", active_drivers, key="to_driver")
-
-        resq_type = st.selectbox("شنو أخذ (نوع الرزق):", RESQ_TYPES)
-
-        if st.button("✅ تسجيل الرزق الآن", type="primary"):
-            if d_from == d_to:
-                st.error("لا يمكن اختيار نفس السائق في الطرفين!")
+            receiver = st.selectbox("السائق المستلم:", active_drivers, key="receiver")
+            
+        resq_type = st.selectbox("نوع الرزق / الكروة:", RESQ_TYPES)
+        notes = st.text_input("ملاحظات إضافية (اختياري):")
+        
+        if st.button("➕ تسجيل الرزق الآن", type="primary"):
+            if giver == receiver:
+                st.error("⚠️ لا يمكن أن يكون السائق المعطي هو نفسه السائق المستلم!")
             else:
-                now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-                trip_entry = {
-                    "time": now_str,
-                    "from": d_from,
-                    "to": d_to,
+                new_trip = {
+                    "id": len(data["trips"]) + 1,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "giver": giver,
+                    "receiver": receiver,
                     "type": resq_type,
-                    "by_role": role
+                    "notes": notes
                 }
-                data["trips"].append(trip_entry)
+                data["trips"].append(new_trip)
                 save_data(data)
-                st.success(f"تم تسجيل ({resq_type}) بين ({d_from}) و ({d_to}) بنجاح!")
+                st.success(f"✅ تم تسجيل كروة ({resq_type}) من [{giver}] إلى [{receiver}] بنجاح!")
                 st.rerun()
 
-# -------------------------------------------------------------
-# التبويب الثاني: إدارة السواق والتفاصيل + رفع Excel + تجميد
-# -------------------------------------------------------------
+# --- التبويب الثاني: إدارة السواق والتفاصيل والعقوبات ---
 with tab2:
     st.subheader("👥 إدارة الأعضاء والتفاصيل والعقوبات")
-    st.info("متاحة للمشرفين والمدير العام (إضافة، استيراد Excel، بيانات التفاصيل، والتجميد)")
-
-    # 1. قسم رفع سواق من ملف Excel
-    with st.expander("📁 1. استيراد ورَفْع سواق دفعة واحدة عن طريق ملف Excel أو CSV", expanded=False):
-        st.write("يمكنك رفع ملف Excel يحتوي على بيانات السواق وإضافتهم فوراً للنظام:")
-        uploaded_file = st.file_uploader("اختر ملف Excel أو CSV:", type=["xlsx", "xls", "csv"])
-        
+    
+    # 1. استيراد سواق من ملف Excel أو CSV
+    with st.expander("📁 1. استيراد ورَفْع سواق دفعة واحدة (Excel/CSV)"):
+        uploaded_file = st.file_uploader("اختر ملف Excel أو CSV احترافي:", type=["xlsx", "xls", "csv"])
         if uploaded_file is not None:
             try:
-                if uploaded_file.name.endswith(".csv"):
-                    df_upload = pd.read_csv(uploaded_file)
+                if uploaded_file.name.endswith('.csv'):
+                    df_import = pd.read_csv(uploaded_file)
                 else:
-                    df_upload = pd.read_excel(uploaded_file)
-
-                st.write("معاينة البيانات بالملف:")
-                st.dataframe(df_upload.head(3), use_container_width=True)
-
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    col_name_match = st.selectbox("عمود اسم السائق:", df_upload.columns)
-                    col_phone_match = st.selectbox("عمود رقم الهاتف (اختياري):", ["بدون"] + list(df_upload.columns))
-                with col_m2:
-                    col_car_match = st.selectbox("عمود نوع السيارة (اختياري):", ["بدون"] + list(df_upload.columns))
-                    col_addr_match = st.selectbox("عمود مكان السكن/العنوان (اختياري):", ["بدون"] + list(df_upload.columns))
-
-                if st.button("🚀 إضافة كافة السواق من الملف الآن"):
+                    df_import = pd.read_excel(uploaded_file)
+                
+                # البحث عن العمود الذي يحتوي الاسم
+                name_col = None
+                for col in df_import.columns:
+                    if "اسم" in str(col) or "name" in str(col).lower() or "سائق" in str(col):
+                        name_col = col
+                        break
+                if not name_col and len(df_import.columns) > 0:
+                    name_col = df_import.columns[0]
+                
+                if name_col:
+                    existing_names = {d["name"] for d in data["drivers"]}
                     count_added = 0
-                    if "driver_info" not in data: data["driver_info"] = {}
-
-                    for _, row in df_upload.iterrows():
-                        name_val = str(row[col_name_match]).strip() if pd.notna(row[col_name_match]) else ""
-                        if name_val and name_val not in data["drivers"]:
-                            data["drivers"].append(name_val)
-                            phone_val = str(row[col_phone_match]).strip() if col_phone_match != "بدون" and pd.notna(row[col_phone_match]) else ""
-                            car_val = str(row[col_car_match]).strip() if col_car_match != "بدون" and pd.notna(row[col_car_match]) else ""
-                            addr_val = str(row[col_addr_match]).strip() if col_addr_match != "بدون" and pd.notna(row[col_addr_match]) else ""
-
-                            data["driver_info"][name_val] = {
-                                "phone": phone_val,
-                                "car": car_val,
-                                "address": addr_val
-                            }
+                    for _, row in df_import.iterrows():
+                        driver_name = str(row[name_col]).strip()
+                        if driver_name and driver_name not in existing_names and driver_name.lower() != "nan":
+                            phone = str(row.get("رقم الهاتف", row.get("هاتف", ""))).replace("nan", "")
+                            car = str(row.get("نوع السيارة", row.get("السيارة", ""))).replace("nan", "")
+                            address = str(row.get("العنوان", row.get("السكن", ""))).replace("nan", "")
+                            
+                            data["drivers"].append({
+                                "name": driver_name,
+                                "phone": phone,
+                                "car": car,
+                                "address": address,
+                                "frozen": False
+                            })
+                            existing_names.add(driver_name)
                             count_added += 1
-
+                    
                     save_data(data)
-                    st.success(f"تمت إضافة ({count_added}) سائق جديد دفعة واحدة بنجاح!")
+                    st.success(f"🎉 تم استيراد إضافة {count_added} سائق جديد بنجاح!")
                     st.rerun()
-
             except Exception as e:
                 st.error(f"حدث خطأ أثناء قراءة الملف: {e}")
 
-    # 2. قسم إضافة سائق يدوي مع التفاصيل
-    with st.expander("➕ 2. إضافة سائق جديد يدوياً مع التفاصيل", expanded=False):
-        col_n1, col_n2 = st.columns(2)
-        with col_n1:
-            d_name = st.text_input("اسم السائق الكامل:")
-            d_phone = st.text_input("رقم الهاتف:")
-        with col_n2:
-            d_car = st.text_input("نوع وموديل السيارة:")
-            d_address = st.text_input("مكان السكن / العنوان:")
+    # 2. إضافة سائق يدوي مع التفاصيل
+    with st.expander("➕ 2. إضافة سائق جديد يدوياً مع التفاصيل"):
+        with st.form("add_driver_form"):
+            new_name = st.text_input("اسم السائق الكامل *:")
+            new_phone = st.text_input("رقم الهاتف:")
+            new_car = st.text_input("نوع وموديل السيارة:")
+            new_address = st.text_input("عنوان السكن / المنطقة:")
+            submit_add = st.form_submit_button("إضافة السائق")
+            
+            if submit_add:
+                new_name = new_name.strip()
+                existing_names = [d["name"] for d in data["drivers"]]
+                if not new_name:
+                    st.error("يرجى إدخال اسم السائق!")
+                elif new_name in existing_names:
+                    st.error("السائق موجود بالفعل!")
+                else:
+                    data["drivers"].append({
+                        "name": new_name,
+                        "phone": new_phone,
+                        "car": new_car,
+                        "address": new_address,
+                        "frozen": False
+                    })
+                    save_data(data)
+                    st.success(f"✅ تم إضافة السائق {new_name} بنجاح!")
+                    st.rerun()
 
-        if st.button("حفظ وإضافة السائق اليدوي"):
-            d_name_clean = d_name.strip()
-            if not d_name_clean:
-                st.warning("يرجى كتابة اسم السائق!")
-            elif d_name_clean in data["drivers"]:
-                st.warning("هذا السائق موجود بالفعل!")
-            else:
-                data["drivers"].append(d_name_clean)
-                if "driver_info" not in data: data["driver_info"] = {}
-                data["driver_info"][d_name_clean] = {
-                    "phone": d_phone.strip(),
-                    "car": d_car.strip(),
-                    "address": d_address.strip()
-                }
-                save_data(data)
-                st.success(f"تمت إضافة السائق ({d_name_clean}) بنجاح!")
-                st.rerun()
-
-    # 3. قسم التجميد والمسح
     st.markdown("---")
-    st.markdown("### 🧊 عقوبة التجميد ومسح الأعضاء")
+    st.subheader("🧊 عقوبة التجميد ومسح الأعضاء")
     
     if data["drivers"]:
-        c_f1, c_f2 = st.columns(2)
-        with c_f1:
-            selected_for_freeze = st.selectbox("اختر السائق للتجميد/التنشيط:", data["drivers"], key="freeze_select")
-            is_frozen = selected_for_freeze in data.get("frozen_drivers", [])
-            if is_frozen:
-                if st.button("🔓 فك التجميد"):
-                    data["frozen_drivers"].remove(selected_for_freeze)
-                    save_data(data)
-                    st.success(f"تم فك تجميد السائق ({selected_for_freeze})!")
-                    st.rerun()
-            else:
-                if st.button("🧊 تجميد السائق"):
-                    if "frozen_drivers" not in data: data["frozen_drivers"] = []
-                    data["frozen_drivers"].append(selected_for_freeze)
-                    save_data(data)
-                    st.warning(f"تم تجميد السائق ({selected_for_freeze})!")
-                    st.rerun()
+        all_driver_names = [d["name"] for d in data["drivers"]]
+        selected_d = st.selectbox("اختر السائق للتعديل أو التجميد:", all_driver_names)
+        
+        # إيجاد السائق المحدد
+        driver_obj = next((d for d in data["drivers"] if d["name"] == selected_d), None)
+        
+        if driver_obj:
+            col_f1, col_f2 = st.columns(2)
+            
+            with col_f1:
+                is_frozen = driver_obj.get("frozen", False)
+                if is_frozen:
+                    st.warning("⚠️ هذا السائق مجمد حالياً (مخفي من القوائم النشطة).")
+                    if st.button("🔥 فك تجميد السائق"):
+                        driver_obj["frozen"] = False
+                        save_data(data)
+                        st.success("✅ تم فك تجميد السائق وإعادته للنشاط!")
+                        st.rerun()
+                else:
+                    st.info("✅ هذا السائق نشط حالياً.")
+                    if st.button("🧊 تجميد السائق (عقوبة)"):
+                        driver_obj["frozen"] = True
+                        save_data(data)
+                        st.warning("تم تجميد السائق بنجاح وإخفاؤه من قوائم تسجيل الكروات.")
+                        st.rerun()
+                        
+            with col_f2:
+                if role == "مدير عام (General Manager)":
+                    if st.button("🗑️ حذف السائق نهائياً من النظام"):
+                        data["drivers"] = [d for d in data["drivers"] if d["name"] != selected_d]
+                        save_data(data)
+                        st.success("تم حذف السائق نهائياً.")
+                        st.rerun()
 
-        with c_f2:
-            driver_to_delete = st.selectbox("اختر السائق للمسح النهائي:", data["drivers"], key="del_select")
-            if st.button("🗑️ مسح السائق نهائياً"):
-                data["drivers"].remove(driver_to_delete)
-                if driver_to_delete in data.get("frozen_drivers", []):
-                    data["frozen_drivers"].remove(driver_to_delete)
-                if "driver_info" in data and driver_to_delete in data["driver_info"]:
-                    del data["driver_info"][driver_to_delete]
-                save_data(data)
-                st.success(f"تم مسح السائق ({driver_to_delete}) بنجاح!")
-                st.rerun()
-
-    # 4. عرض كافة السواق وتفاصيلهم
     st.markdown("---")
-    st.write("**📋 دليل بيانات جميع سواق الجروب:**")
-    
-    full_info_list = []
-    d_info_dict = data.get("driver_info", {})
-    
-    for d in data["drivers"]:
-        info = d_info_dict.get(d, {})
-        status = "🧊 مجمد" if d in data.get("frozen_drivers", []) else "✅ نشط"
-        full_info_list.append({
-            "اسم السائق": d,
-            "الحالة": status,
-            "رقم الهاتف": info.get("phone", "-"),
-            "السيارة": info.get("car", "-"),
-            "مكان السكن/العنوان": info.get("address", "-")
+    st.subheader("📋 دليل بيانات جميع سواق الجروب")
+    if data["drivers"]:
+        df_drivers_show = pd.DataFrame(data["drivers"])
+        df_drivers_show["الحالة"] = df_drivers_show["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
+        df_drivers_show = df_drivers_show.rename(columns={
+            "name": "الاسم", 
+            "phone": "رقم الهاتف", 
+            "car": "السيارة", 
+            "address": "السكن"
         })
-    st.dataframe(pd.DataFrame(full_info_list), use_container_width=True)
+        st.dataframe(df_drivers_show[["الاسم", "الحالة", "رقم الهاتف", "السيارة", "السكن"]], use_container_width=True)
 
-# -------------------------------------------------------------
-# التبويب الثالث: سجل الرزق التفصيلي مع خيار الحذف
-# -------------------------------------------------------------
+# --- التبويب الثالث: سجل الرزق التفصيلي ---
 with tab3:
-    st.subheader("📋 سجل الكروات والطلبات المسجلة")
+    st.subheader("📜 سجل الكروات التفصيلي")
+    
     if not data["trips"]:
-        st.info("لا توجد طلبات مسجلة حتى الآن.")
+        st.info("لا توجد كروات مسجلة حتى الآن.")
     else:
         df_trips = pd.DataFrame(data["trips"])
-        df_trips.columns = ["الوقت والتاريخ", "نزل رزقه", "أخذ الرزق", "نوع الرزق", "تم التسجيل بواسطة"]
-        st.dataframe(df_trips, use_container_width=True)
-
+        df_trips_display = df_trips.rename(columns={
+            "id": "ت",
+            "time": "التاريخ والوقت",
+            "giver": "المعطي (صاحب الكروة)",
+            "receiver": "المستلم",
+            "type": "نوع الرزق",
+            "notes": "الملاحظات"
+        })
+        st.dataframe(df_trips_display, use_container_width=True)
+        
+        # إلغاء / حذف كروة
         st.markdown("---")
-        st.markdown("### 🗑️ إلغاء / حذف طلب محدد")
-        trip_options = [f"#{i+1} - {t['type']} ({t['from']} ⬅️ {t['to']}) - {t['time']}" for i, t in enumerate(data["trips"])]
-        selected_trip_idx = st.selectbox("اختر الطلب المراد إلغاؤه:", range(len(trip_options)), format_func=lambda x: trip_options[x])
-
-        if st.button("إلغاء هذا الطلب"):
-            deleted = data["trips"].pop(selected_trip_idx)
+        st.write("❌ **إلغاء أو حذف كروة خطأ:**")
+        trip_ids = [t["id"] for t in data["trips"]]
+        selected_trip_id = st.selectbox("اختر رقم الكروة (ت) للحذف:", trip_ids)
+        if st.button("حذف الكروة المحددة", type="secondary"):
+            data["trips"] = [t for t in data["trips"] if t["id"] != selected_trip_id]
             save_data(data)
-            st.success("تم إلغاء الطلب وتحديث الحسابات!")
+            st.success(f"تم حذف الكروة رقم {selected_trip_id} بنجاح!")
             st.rerun()
 
-# -------------------------------------------------------------
-# التبويب الرابع: ملخص الحسابات وسحب تقارير Excel
-# -------------------------------------------------------------
+# --- التبويب الرابع: الملخص والتقارير وميزان العدالة ---
 with tab4:
-    st.subheader("📊 ملخص حسابات كل سائق")
-
-    if data["drivers"]:
-        summary_rows = []
+    st.subheader("📊 جدول ميزان السواق (العدالة والحسابات)")
+    
+    if not data["drivers"]:
+        st.info("يرجى إضافة سواق أولاً لرؤية الحسابات.")
+    else:
+        balances = {d["name"]: {"given": 0, "received": 0} for d in data["drivers"]}
+        
+        for t in data["trips"]:
+            g = t.get("giver")
+            r = t.get("receiver")
+            if g in balances:
+                balances[g]["given"] += 1
+            if r in balances:
+                balances[r]["received"] += 1
+                
+        summary_data = []
         for d in data["drivers"]:
-            given_dict = {}
-            taken_dict = {}
-
-            for t in data["trips"]:
-                t_type = t.get("type", "كروة كاملة")
-                if t["from"] == d:
-                    given_dict[t_type] = given_dict.get(t_type, 0) + 1
-                if t["to"] == d:
-                    taken_dict[t_type] = taken_dict.get(t_type, 0) + 1
-
-            g_str = " | ".join([f"{k}: {v}" for k, v in given_dict.items()]) if given_dict else "لا يوجد"
-            t_str = " | ".join([f"{k}: {v}" for k, v in taken_dict.items()]) if taken_dict else "لا يوجد"
+            name = d["name"]
+            given = balances[name]["given"]
+            received = balances[name]["received"]
+            net = given - received  # صافي الميزان
+            status = "🧊 مجمد" if d.get("frozen", False) else "✅ نشط"
+            summary_data.append({
+                "اسم السائق": name,
+                "الحالة": status,
+                "أنطى (معطي)": given,
+                "أخذ (مستلم)": received,
+                "الصافي / الميزان": net
+            })
             
-            d_status = "🧊 مجمد" if d in data.get("frozen_drivers", []) else "✅ نشط"
-
-            summary_rows.append({"اسم السائق": d, "الحالة": d_status, "نزل رزق (عطى)": g_str, "أخذ رزق (استلم)": t_str})
-
-        df_sum = pd.DataFrame(summary_rows)
-        st.dataframe(df_sum, use_container_width=True)
-
-        # سحب تقرير Excel/CSV
+        df_summary = pd.DataFrame(summary_data)
+        st.dataframe(df_summary, use_container_width=True)
+        
+        # تصدير تقارير Excel/CSV
         st.markdown("---")
-        csv_data = df_sum.to_csv(index=False, encoding='utf-8-sig')
-        st.download_button(
-            label="📊 سحب وتنزيل تقرير Excel",
-            data=csv_data,
-            file_name=f"driver_report_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
+        st.subheader("📥 تصدير التقارير إلى Excel / CSV")
+        
+        col_ex1, col_ex2 = st.columns(2)
+        with col_ex1:
+            csv_summary = df_summary.to_csv(index=False, encoding='utf-8-sig')
+            st.download_button(
+                label="📥 تحميل جدول الميزان (CSV/Excel)",
+                data=csv_summary,
+                file_name="ميزان_سواق_الجروب.csv",
+                mime="text/csv"
+            )
+        with col_ex2:
+            if data["trips"]:
+                csv_trips = pd.DataFrame(data["trips"]).to_csv(index=False, encoding='utf-8-sig')
+                st.download_button(
+                    label="📥 تحميل السجل التفصيلي (CSV/Excel)",
+                    data=csv_trips,
+                    file_name="سجل_الكروات_التفصيلي.csv",
+                    mime="text/csv"
+                )
