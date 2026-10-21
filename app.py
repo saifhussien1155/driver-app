@@ -2,17 +2,18 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import random
 from datetime import datetime
 
-# 1. إعدادات الصفحة
+# 1. إعدادات الصفحة الأساسية
 st.set_page_config(
-    page_title="النظام الإداري المركزي 🏢",
-    page_icon="🏢",
+    page_title="كابتن الگرووب 🚖 | نظام الأجرة والميزان",
+    page_icon="🚖",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 2. التنسيق والواجهة العصرية باللون البنفسجي الفخم
+# 2. تصميم الواجهة العصرية
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
@@ -20,23 +21,25 @@ st.markdown("""
     html, body, [class*="css"], .stApp {
         direction: rtl;
         text-align: right;
-        font-family: 'Tajawal', sans-serif;
-        background-color: #f3f4f6;
+        font-family: 'Tajawal', 'Segoe UI', sans-serif;
+        background-color: #f8fafc;
     }
     
-    [data-testid="stSidebar"], [data-testid="collapsedControl"] { 
-        display: none !important; 
+    [data-testid="stSidebar"], [data-testid="collapsedControl"] {
+        display: none !important;
     }
 
     h1, h2, h3, h4 {
         font-family: 'Tajawal', sans-serif !important;
         font-weight: 700 !important;
-        color: #3b0764;
+        color: #0f172a;
     }
 
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0.8rem !important;
         padding-bottom: 2rem !important;
+        padding-left: 0.6rem !important;
+        padding-right: 0.6rem !important;
         max-width: 100% !important;
     }
 
@@ -44,69 +47,123 @@ st.markdown("""
         background: #ffffff;
         padding: 16px;
         border-radius: 16px;
-        border: 1px solid #e9d5ff;
-        box-shadow: 0 4px 12px rgba(107, 33, 168, 0.05);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
         margin-bottom: 12px;
     }
 
     .stButton>button, div[data-testid="stForm"] button {
         width: 100% !important;
         border-radius: 12px !important;
-        font-size: 1rem !important;
+        font-size: 1.02rem !important;
         font-weight: 700 !important;
         font-family: 'Tajawal', sans-serif !important;
         padding: 10px 14px !important;
+        transition: all 0.2s ease-in-out;
         border: none !important;
-        box-shadow: 0 2px 6px rgba(107, 33, 168, 0.15);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
 
     button[kind="primary"] {
-        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
         color: #ffffff !important;
     }
 
     div[data-baseweb="tab-list"] {
         gap: 6px !important;
-        background-color: #ede9fe;
-        padding: 6px;
+        flex-wrap: wrap !important;
+        background-color: #e2e8f0;
+        padding: 5px;
         border-radius: 14px;
         margin-bottom: 15px;
-        flex-wrap: wrap !important;
     }
     
     button[data-baseweb="tab"] {
         font-family: 'Tajawal', sans-serif !important;
         font-size: 0.82rem !important;
         font-weight: 700 !important;
+        padding: 8px 8px !important;
         border-radius: 10px !important;
-        color: #581c87 !important;
+        color: #475569 !important;
     }
 
     button[aria-selected="true"] {
         background-color: #ffffff !important;
-        color: #7c3aed !important;
-        box-shadow: 0 2px 6px rgba(107, 33, 168, 0.1) !important;
+        color: #d97706 !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+    }
+
+    .metric-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 10px 14px;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+    .metric-val {
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: #d97706;
+    }
+    .metric-lbl {
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 600;
     }
 
     #MainMenu, header, footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
-DATA_FILE = "admin_system_data.json"
+DATA_FILE = "groups_accounts_data.json"
+
+DEFAULT_PRICES = {
+    "أجرة كاملة": 10000,
+    "نفر": 2500,
+    "نفرين": 5000,
+    "حوض": 15000,
+    "بريد": 5000,
+    "بريد كامل": 10000,
+    "أجرة مرجع": 12000,
+    "أخرى (إدخال يدوي ✍️)": 0
+}
 
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if "groups" not in data: data["groups"] = {}
+                for g_name, g_info in data["groups"].items():
+                    if "group_code" not in g_info: g_info["group_code"] = "12345"
+                    if "pending_drivers" not in g_info: g_info["pending_drivers"] = []
+                    if "pending_trips" not in g_info: g_info["pending_trips"] = []
+                    if "prices" not in g_info: g_info["prices"] = DEFAULT_PRICES
+                    if "chat" not in g_info: g_info["chat"] = []
+                    if "drivers" not in g_info: g_info["drivers"] = []
+                    if "trips" not in g_info: g_info["trips"] = []
+                    for d in g_info.get("drivers", []):
+                        if "role" not in d: d["role"] = "driver"
+                        if "score" not in d: d["score"] = 0
+                        if "frozen" not in d: d["frozen"] = False
+                return data
         except Exception:
             pass
     return {
-        "admin_dept": [],       # قسم الإدارة (الكتب والتعاميم)
-        "comms_dept": [],       # شعبة الاتصالات (الأجهزة والمنظومات)
-        "training_dept": [],    # قسم التدريب (الدورات والمنتسبين)
-        "it_dept": [],          # نظم المعلومات (البصمة والأجهزة)
-        "accounts_dept": []     # الحسابات والعهد
+        "groups": {
+            "گرووب سيف": {
+                "phone": "07711111111",
+                "pin": "1111",
+                "group_code": "12345",
+                "drivers": [],
+                "pending_drivers": [],
+                "trips": [],
+                "pending_trips": [],
+                "prices": DEFAULT_PRICES,
+                "chat": []
+            }
+        }
     }
 
 def save_data(data):
@@ -118,176 +175,399 @@ data = load_data()
 if "success_msg" in st.session_state:
     st.success(st.session_state.pop("success_msg"))
 
-# الهيدر العصري
-st.markdown("""
-    <div style="text-align: center; padding: 10px 0 15px 0;">
-        <div style="font-size: 3rem; line-height: 1;">🏢🎖️</div>
-        <h2 style="color: #6d28d9; font-weight: 800; margin: 5px 0 0 0;">النظام الإداري والخدمي المركزي</h2>
-        <p style="color: #6b7280; font-size: 0.85rem;">إدارة الأقسام، الاتصالات، التدريب، نظم المعلومات، والحسابات بدقة واحترافية</p>
+# ---------------- 🔒 شاشة تسجيل الدخول أو حساب جديد ----------------
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+    st.session_state.user_name = None
+    st.session_state.current_group = None
+    st.session_state.role_type = None
+    st.session_state.user_score = 0
+
+if not st.session_state.authenticated:
+    st.markdown("""
+        <div style="text-align: center; padding: 15px 0 10px 0;">
+            <div style="font-size: 3.8rem; line-height: 1;">🚖</div>
+            <h2 style="color: #d97706; margin-top: 8px; font-weight: 800;">كابتن الگرووب</h2>
+            <p style="color: #64748b; font-size: 0.9rem;">نظام إدارة الأجرة والرزق الموثقة بالأكواد والموافقات</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    tab_auth1, tab_auth2 = st.tabs(["🔑 تسجيل الدخول", "✨ تأسيس گرووب جديد أو طلب انضمام بـ رمز"])
+    
+    # 1. تسجيل الدخول
+    with tab_auth1:
+        with st.form("login_form"):
+            st.markdown("##### تسجيل الدخول (مسؤول، مشرف، أو عضو)")
+            l_phone = st.text_input("📞 رقم الموبايل:")
+            l_pin = st.text_input("🔑 الرمز السري (PIN):", type="password")
+            sub_l = st.form_submit_button("دخول للنظام 🚀", type="primary")
+            
+            if sub_l:
+                l_phone = l_phone.strip()
+                l_pin = l_pin.strip()
+                found_g = None
+                found_user = None
+                role_type = "driver"
+                score = 0
+                
+                for g_name, g_info in data["groups"].items():
+                    if str(g_info.get("phone")) == l_phone and str(g_info.get("pin")) == l_pin:
+                        found_g = g_name
+                        found_user = f"مسؤول {g_name}"
+                        role_type = "admin"
+                        break
+                    for drv in g_info.get("drivers", []):
+                        if str(drv.get("phone")) == l_phone and str(drv.get("pin", "")) == l_pin:
+                            if not drv.get("frozen", False):
+                                found_g = g_name
+                                found_user = drv["name"]
+                                role_type = drv.get("role", "driver")
+                                score = drv.get("score", 0)
+                            break
+                    if found_g: break
+                        
+                if found_g:
+                    st.session_state.authenticated = True
+                    st.session_state.user_name = found_user
+                    st.session_state.current_group = found_g
+                    st.session_state.role_type = role_type
+                    st.session_state.user_score = score
+                    st.success(f"✅ أهلاً بك ({found_user}) في گرووب: {found_g}")
+                    st.rerun()
+                else:
+                    st.error("❌ رقم الموبايل أو الرمز السري غير صحيح أو أن حسابك بانتظار الموافقة!")
+
+    # 2. تأسيس أو طلب انضمام بـ رمز
+    with tab_auth2:
+        reg_mode = st.radio("اختر العملية:", ["تأسيس گرووب جديد (مسؤول)", "طلب انضمام لعضو جديد بـ رمز الگرووب"])
+        
+        if reg_mode == "تأسيس گرووب جديد (مسؤول)":
+            with st.form("new_group_form"):
+                st.markdown("##### تأسيس گرووب مستقل جديد")
+                rg_name = st.text_input("اسم الگرووب (مثلاً: گرووب سيف):")
+                rg_phone = st.text_input("رقم موبايل المسؤول:")
+                rg_pin = st.text_input("الرمز السري للمسؤول:", type="password")
+                rg_code = st.text_input("رمز انضمام الأعضاء السري للگرووب (مثلاً: 12345):")
+                sub_rg = st.form_submit_button("تأسيس الگرووب الان 🚀", type="primary")
+                
+                if sub_rg:
+                    if not rg_name.strip() or not rg_phone.strip() or len(rg_pin.strip()) < 4 or not rg_code.strip():
+                        st.error("يرجى ملء كافة الحقول بدقة!")
+                    elif rg_name in data["groups"]:
+                        st.error("اسم الگرووب مستخدم مسبقاً!")
+                    else:
+                        data["groups"][rg_name] = {
+                            "phone": rg_phone.strip(),
+                            "pin": rg_pin.strip(),
+                            "group_code": rg_code.strip(),
+                            "drivers": [],
+                            "pending_drivers": [],
+                            "trips": [],
+                            "pending_trips": [],
+                            "prices": DEFAULT_PRICES,
+                            "chat": []
+                        }
+                        save_data(data)
+                        st.session_state.authenticated = True
+                        st.session_state.user_name = f"مسؤول {rg_name}"
+                        st.session_state.current_group = rg_name
+                        st.session_state.role_type = "admin"
+                        st.session_state["success_msg"] = "🎉 تم تأسيس الگرووب بنجاح!"
+                        st.rerun()
+        else:
+            with st.form("join_member_form"):
+                st.markdown("##### إرسال طلب انضمام بواسطة رمز الگرووب")
+                jn_gname = st.selectbox("اختر اسم الگرووب:", list(data["groups"].keys()))
+                jn_code = st.text_input("🔑 أدخل رمز انضمام الگرووب السري:")
+                jn_name = st.text_input("اسمك الكامل:")
+                jn_phone = st.text_input("رقم هاتفك:")
+                jn_pin = st.text_input("اختر رمزاً سرياً خاص بك (PIN):", type="password")
+                jn_car = st.text_input("نوع السيارة (اختياري):")
+                sub_jn = st.form_submit_button("إرسال طلب الانضمام للمشرف ⏳", type="primary")
+                
+                if sub_jn:
+                    g_info = data["groups"].get(jn_gname)
+                    if jn_code.strip() != str(g_info.get("group_code")):
+                        st.error("❌ رمز انضمام الگرووب غير صحيح!")
+                    elif not jn_name.strip() or not jn_phone.strip() or len(jn_pin.strip()) < 4:
+                        st.error("يرجى ملء الحقول وتأمين رمز سري لا يقل عن 4 أرقام!")
+                    else:
+                        g_info["pending_drivers"].append({
+                            "name": jn_name.strip(),
+                            "phone": jn_phone.strip(),
+                            "pin": jn_pin.strip(),
+                            "car": jn_car.strip()
+                        })
+                        save_data(data)
+                        st.success("⏳ تم إرسال طلب انضمامك بنجاح! بانتظار موافقة مشرف الگرووب.")
+    st.stop()
+
+# ---------------- لوحة تحكم التطبيق المستقل ----------------
+
+current_g_name = st.session_state.current_group
+group_data = data["groups"][current_g_name]
+user_role = st.session_state.get("role_type", "driver")
+
+st.markdown(f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0 12px 0;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 2.2rem;">🚖</span>
+            <div>
+                <h2 style="margin: 0; font-size: 1.25rem; color: #d97706;">{current_g_name}</h2>
+                <span style="font-size: 0.75rem; color: #64748b;">رمز انضمام الگرووب: <b>{group_data.get('group_code', '12345')}</b></span>
+            </div>
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs([
-    "📂 الإدارة والكتب", 
-    "📡 الاتصالات والمنظومات", 
-    "🎯 التدريب والمنتسبين", 
-    "💻 نظم المعلومات والبصمة", 
-    "💰 الحسابات والعهد"
-])
+col_info1, col_info2 = st.columns([2, 1])
+with col_info1:
+    st.caption(f"المستخدم: **{st.session_state.user_name}** | الصلاحية: **{user_role}**")
+with col_info2:
+    if st.button("خروج 🚪"):
+        st.session_state.authenticated = False
+        st.session_state.user_name = None
+        st.session_state.current_group = None
+        st.rerun()
 
-tab_admin, tab_comms, tab_train, tab_it, tab_acc = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4]
-
-# ---------------- 1. قسم الإدارة والكتب ----------------
-with tab_admin:
-    st.subheader("📂 قسم الإدارة (الصادر والوارد والتعاميم)")
+# تخصيص التبويبات حسب الصلاحية
+if user_role == "driver":
+    tabs = st.tabs(["👤 صفحتي الشخصية", "📝 تسجيل رزق (بانتظار الموافقة)", "💬 محادثة الگرووب"])
+    tab1, tab2, tab3 = tabs[0], tabs[1], tabs[2]
     
-    with st.expander("➕ تسجيل كتاب إداري جديد"):
-        with st.form("admin_form", clear_on_submit=True):
-            doc_title = st.text_input("موضوع الكتاب / التعميم:")
-            doc_num = st.text_input("رقم الكتاب:")
-            doc_type = st.selectbox("نوع الكتاب:", ["صادر رسمي", "وارد رسمي", "مذكرة داخلية", "برقية"])
-            doc_date = st.date_input("تاريخ الكتاب:")
-            doc_notes = st.text_input("ملاحظات / الخلاصة:")
-            
-            if st.form_submit_button("حفظ وإرشفة الكتاب 📂", type="primary"):
-                if doc_title.strip() and doc_num.strip():
-                    data["admin_dept"].append({
-                        "date_saved": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "title": doc_title.strip(),
-                        "number": doc_num.strip(),
-                        "type": doc_type,
-                        "date": str(doc_date),
-                        "notes": doc_notes.strip()
-                    })
+    with tab1:
+        st.subheader("👤 ملفي الشخصي وقوة الحساب")
+        drv_obj = next((d for d in group_data["drivers"] if d["name"] == st.session_state.user_name), {})
+        st.markdown(f"""
+            <div style="background: white; padding: 20px; border-radius: 14px; border: 1px solid #e2e8f0; text-align: center;">
+                <div style="font-size: 4rem;">🧑‍✈️</div>
+                <h3 style="color: #0f172a; margin: 5px 0;">{st.session_state.user_name}</h3>
+                <p style="color: #64748b;">رقم الهاتف: {drv_obj.get('phone', 'غير متوفر')}</p>
+                <p style="color: #64748b;">نوع السيارة: {drv_obj.get('car', 'غير محدد')}</p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0;">
+                <h4 style="color: #d97706;">⭐ قوة الحساب والرزق المسجل: {drv_obj.get('score', 0)} نقطة</h4>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with tab2:
+        st.subheader("📝 تسجيل طلب / رزق جديد")
+        active_drivers = [d["name"] for d in group_data["drivers"] if not d.get("frozen", False)]
+        if not active_drivers:
+            st.warning("لا يوجد سواق نشطون معتمدون في الگرووب حالياً.")
+        else:
+            with st.form("drv_pend_form", clear_on_submit=True):
+                giver = st.selectbox("السائق المعطي:", active_drivers)
+                receiver = st.selectbox("السائق المستلم:", active_drivers, index=min(1, len(active_drivers)-1))
+                resq_type = st.selectbox("نوع الأجرة:", list(group_data["prices"].keys()))
+                trip_price = st.number_input("السعر (د.ع):", value=int(group_data["prices"].get(resq_type, 0)), step=500)
+                notes = st.text_input("ملاحظات / رابط موقع الخريطة:")
+                
+                if st.form_submit_button("📤 إرسال طلب الرزق للمشرف", type="primary"):
+                    if giver == receiver:
+                        st.error("⚠️ المعطي والمستلم نفس الشخص!")
+                    else:
+                        group_data["pending_trips"].append({
+                            "id": len(group_data["pending_trips"]) + len(group_data["trips"]) + 1,
+                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "giver": giver,
+                            "receiver": receiver,
+                            "type": resq_type,
+                            "price": float(trip_price),
+                            "notes": notes,
+                            "added_by": st.session_state.user_name
+                        })
+                        save_data(data)
+                        st.session_state["success_msg"] = "✅ تم إرسال الطلب بنجاح!"
+                        st.rerun()
+
+    with tab3:
+        st.subheader("💬 محادثة الگرووب")
+        c_box = st.container(height=300)
+        with c_box:
+            for msg in group_data["chat"]:
+                st.markdown(f"**💬 {msg['sender']}** ({msg['time']}):<br>{msg['text']}", unsafe_allow_html=True)
+                st.markdown("---")
+        with st.form("drv_chat_f", clear_on_submit=True):
+            txt = st.text_input("اكتب رسالة:")
+            if st.form_submit_button("إرسال 📨", type="primary") and txt.strip():
+                group_data["chat"].append({
+                    "sender": st.session_state.user_name,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "text": txt.strip()
+                })
+                save_data(data)
+                st.rerun()
+
+else:
+    # 👑 واجهة المسؤول أو المشرف
+    tabs = st.tabs(["👥 طلبات الانضمام 📥", "⏳ الموافقات المعلقة", "⚙️ إعدادات الگرووب", "🚘 الأعضاء والترقية للمشرفين", "📋 سجل الأجور", "📊 الميزان والمالية", "💬 المحادثة"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4], tabs[5], tabs[6]
+
+    with tab1:
+        st.subheader("📥 طلبات انضمام الأعضاء الجدد للگرووب")
+        if group_data["pending_drivers"]:
+            for pd_item in group_data["pending_drivers"]:
+                with st.expander(f"عضو جديد: {pd_item['name']} | الهاتف: {pd_item['phone']} | السيارة: {pd_item.get('car', 'بدون')}"):
+                    col_j1, col_j2 = st.columns(2)
+                    with col_j1:
+                        if st.button(f"✅ قبول العضو", key=f"accept_drv_{pd_item['phone']}"):
+                            group_data["drivers"].append({
+                                "name": pd_item["name"],
+                                "phone": pd_item["phone"],
+                                "pin": pd_item["pin"],
+                                "car": pd_item.get("car", ""),
+                                "role": "driver",
+                                "score": 0,
+                                "frozen": False
+                            })
+                            group_data["pending_drivers"] = [x for x in group_data["pending_drivers"] if x["phone"] != pd_item["phone"]]
+                            save_data(data)
+                            st.session_state["success_msg"] = f"✅ تم قبول العضو {pd_item['name']} بنجاح!"
+                            st.rerun()
+                    with col_j2:
+                        if st.button(f"❌ رفض الطلب", key=f"reject_drv_{pd_item['phone']}"):
+                            group_data["pending_drivers"] = [x for x in group_data["pending_drivers"] if x["phone"] != pd_item["phone"]]
+                            save_data(data)
+                            st.session_state["success_msg"] = "🗑️ تم رفض وحذف طلب الانضمام!"
+                            st.rerun()
+        else:
+            st.info("لا توجد طلبات انضمام جديدة معلقة حالياً.")
+
+    with tab2:
+        st.subheader("⏳ طلبات الرزق المعلقة بانتظار موافقتك")
+        if group_data["pending_trips"]:
+            for pt in group_data["pending_trips"]:
+                with st.expander(f"طلب رقم #{pt['id']} | بواسطة: {pt['added_by']} | المعطي: {pt['giver']} ⬅️ المستلم: {pt['receiver']} ({pt['price']} د.ع)"):
+                    st.text(f"النوع: {pt['type']} | الوقت: {pt['time']} | ملاحظات: {pt['notes']}")
+                    c_app, c_rej = st.columns(2)
+                    with c_app:
+                        if st.button(f"✅ قبول الطلب", key=f"app_{pt['id']}"):
+                            group_data["trips"].append(pt)
+                            for d in group_data["drivers"]:
+                                if d["name"] == pt["added_by"]:
+                                    d["score"] = d.get("score", 0) + 10
+                            group_data["pending_trips"] = [x for x in group_data["pending_trips"] if x["id"] != pt["id"]]
+                            save_data(data)
+                            st.session_state["success_msg"] = "✅ تم قبول الطلب وزيادة قوة حساب العضو!"
+                            st.rerun()
+                    with c_rej:
+                        if st.button(f"❌ حذف / رفض الطلب", key=f"rej_{pt['id']}"):
+                            group_data["pending_trips"] = [x for x in group_data["pending_trips"] if x["id"] != pt["id"]]
+                            save_data(data)
+                            st.session_state["success_msg"] = "🗑️ تم رفض وحذف الطلب!"
+                            st.rerun()
+        else:
+            st.info("لا توجد طلبات رزق معلقة حالياً.")
+
+    with tab3:
+        st.subheader("⚙️ إعدادات الگرووب ورمز الانضمام السري")
+        with st.form("change_code_form"):
+            new_g_code = st.text_input("تغيير رمز انضمام الگرووب السري:", value=group_data.get("group_code", "12345"))
+            if st.form_submit_button("حفظ وتحديث رمز الگرووب 🔒", type="primary"):
+                if new_g_code.strip():
+                    group_data["group_code"] = new_g_code.strip()
                     save_data(data)
-                    st.session_state["success_msg"] = "✅ تمت أرشفة الكتاب الإداري بنجاح!"
+                    st.session_state["success_msg"] = "✅ تم تحديث رمز انضمام الگرووب بنجاح!"
                     st.rerun()
+                else:
+                    st.error("الرمز لا يمكن أن يكون فارغاً!")
 
-    if data["admin_dept"]:
-        st.markdown("##### 📋 سجل الكتب والتعاميم المؤرشفة")
-        st.dataframe(pd.DataFrame(data["admin_dept"]), use_container_width=True)
-    else:
-        st.info("لا توجد كتب مسجلة في قسم الإدارة حالياً.")
-
-# ---------------- 2. شعبة الاتصالات ----------------
-with tab_comms:
-    st.subheader("📡 شعبة الاتصالات (إدارة أجهزة الراديو والمقاحل والمنظومات)")
-    
-    with st.expander("➕ تسجيل جهاز / منظومة اتصالات جديدة"):
-        with st.form("comms_form", clear_on_submit=True):
-            device_name = st.text_input("نوع الجهاز / المنظومة (مثلاً: هاريس 50W، ربيتر، محطة):")
-            device_serial = st.text_input("الرقم التعريفي (Serial / السيريال):")
-            device_loc = st.text_input("الموقع / النقطة المرابطة فيها:")
-            device_status = st.selectbox("حالة الجهاز:", ["🟢 صالح للعمل وعامل", "🟡 يحتاج صيانة", "🔴 عاطل عن العمل"])
+    with tab4:
+        st.subheader("🚘 إدارة الأعضاء وترقية المشرفين وحالة النشاط")
+        if group_data["drivers"]:
+            member_rows = []
+            for d in group_data["drivers"]:
+                status_dot = "🟢 نشط" if not d.get("frozen", False) else "⚪ مجمد"
+                role_label = "👑 مشرف" if d.get("role") == "supervisor" else "🧑‍✈️ عضو/سائق"
+                member_rows.append({
+                    "الاسم": d["name"],
+                    "الصلاحية": role_label,
+                    "الحالة": status_dot,
+                    "نقاط القوة": d.get("score", 0),
+                    "الهاتف": d.get("phone", "")
+                })
+            st.dataframe(pd.DataFrame(member_rows), use_container_width=True)
             
-            if st.form_submit_button("حفظ بيانات الاتصالات 📡", type="primary"):
-                if device_name.strip():
-                    data["comms_dept"].append({
-                        "time": datetime.now().strftime("%Y-%m-%d"),
-                        "device": device_name.strip(),
-                        "serial": device_serial.strip(),
-                        "location": device_loc.strip(),
-                        "status": device_status
-                    })
-                    save_data(data)
-                    st.session_state["success_msg"] = "✅ تمت إضافة بيانات جهاز الاتصالات بنجاح!"
-                    st.rerun()
-
-    if data["comms_dept"]:
-        st.markdown("##### 📋 جرد أجهزة ومنظومات الاتصالات")
-        st.dataframe(pd.DataFrame(data["comms_dept"]), use_container_width=True)
-    else:
-        st.info("لا توجد أجهزة مسجلة في شعبة الاتصالات حالياً.")
-
-# ---------------- 3. قسم التدريب ----------------
-with tab_train:
-    st.subheader("🎯 قسم التدريب (الدورات وتوزيع المنتسبين)")
-    
-    with st.expander("➕ تسجيل دورة أو جدول تدريبي جديد"):
-        with st.form("train_form", clear_on_submit=True):
-            course_name = st.text_input("عنوان الدورة / الوجبة التدريبية:")
-            trainer = st.text_input("المشرف أو المدرب المسؤول:")
-            trainees_count = st.number_input("عدد المنتسبين المشاركين:", value=10, step=1)
-            duration = st.text_input("فترة الدورة (مثلاً: أسبوعين):")
+            sel_d = st.selectbox("اختر عضواً لإدارته:", [d["name"] for d in group_data["drivers"]])
+            d_obj = next((d for d in group_data["drivers"] if d["name"] == sel_d), None)
             
-            if st.form_submit_button("حفظ الدورة التدريبية 🎯", type="primary"):
-                if course_name.strip():
-                    data["training_dept"].append({
-                        "time": datetime.now().strftime("%Y-%m-%d"),
-                        "course": course_name.strip(),
-                        "trainer": trainer.strip(),
-                        "count": int(trainees_count),
-                        "duration": duration.strip()
-                    })
-                    save_data(data)
-                    st.session_state["success_msg"] = "✅ تم تسجيل الدورة التدريبية بنجاح!"
-                    st.rerun()
+            if d_obj:
+                col_m1, col_m2, col_m3 = st.columns(3)
+                with col_m1:
+                    current_is_sup = d_obj.get("role") == "supervisor"
+                    btn_txt = "⬇️ تنزيل لعضو عادي" if current_is_sup else "⭐ ترقية إلى مشرف"
+                    if st.button(btn_txt):
+                        d_obj["role"] = "driver" if current_is_sup else "supervisor"
+                        save_data(data)
+                        st.session_state["success_msg"] = f"✅ تم تحديث صلاحية العضو {d_obj['name']} بنجاح!"
+                        st.rerun()
+                with col_m2:
+                    if st.button("🧊 تجميد / تنشيط"):
+                        d_obj["frozen"] = not d_obj.get("frozen", False)
+                        save_data(data)
+                        st.rerun()
+                with col_m3:
+                    if st.button("🗑️ طرد نهائي"):
+                        group_data["drivers"] = [x for x in group_data["drivers"] if x["name"] != sel_d]
+                        save_data(data)
+                        st.rerun()
+        else:
+            st.info("لا توجد أعضاء معتمدون في الگرووب حالياً.")
 
-    if data["training_dept"]:
-        st.markdown("##### 📋 سجل الدورات التدريبية")
-        st.dataframe(pd.DataFrame(data["training_dept"]), use_container_width=True)
-    else:
-        st.info("لا توجد دورات تدريبية مسجلة حالياً.")
+    with tab5:
+        st.subheader("📜 سجل الأجور المقبولة رسمياً")
+        if group_data["trips"]:
+            st.dataframe(pd.DataFrame(group_data["trips"]), use_container_width=True)
+            sel_t = st.selectbox("رقم الأجرة للحذف:", [t["id"] for t in group_data["trips"]])
+            if st.button("حذف الأجرة المحددة"):
+                group_data["trips"] = [t for t in group_data["trips"] if t["id"] != sel_t]
+                save_data(data)
+                st.rerun()
+        else:
+            st.info("لا توجد أجور مقبولة.")
 
-# ---------------- 4. نظم المعلومات والبصمة ----------------
-with tab_it:
-    st.subheader("💻 نظم المعلومات (إدارة أجهزة البصمة والمنظومات البرمجية)")
-    
-    with st.expander("➕ تسجيل إجراء أو صيانة برمجية/بصمة"):
-        with st.form("it_form", clear_on_submit=True):
-            it_action = st.text_input("نوع الإجراء (مثلاً: تحديث قاعدة بيانات البصمة، صيانة جهاز ZKTeco):")
-            it_tech = st.text_input("اسم الفني أو المبرمج القائم بالإجراء:")
-            it_status = st.selectbox("الحالة:", ["تم الإنجاز بنجاح", "قيد المتابعة", "تتطلب قطع غيار / تحديث"])
-            it_notes = st.text_input("ملاحظات إضافية:")
+    with tab6:
+        st.subheader("📊 ميزان العدالة وحسابات الفلوس")
+        if group_data["drivers"]:
+            balances = {d["name"]: {"given": 0, "received": 0, "g_money": 0.0, "r_money": 0.0} for d in group_data["drivers"]}
+            for t in group_data["trips"]:
+                p = float(t.get("price", 0))
+                if t.get("giver") in balances:
+                    balances[t["giver"]]["given"] += 1
+                    balances[t["giver"]]["g_money"] += p
+                if t.get("receiver") in balances:
+                    balances[t["receiver"]]["received"] += 1
+                    balances[t["receiver"]]["r_money"] += p
             
-            if st.form_submit_button("حفظ سجل نظم المعلومات 💻", type="primary"):
-                if it_action.strip():
-                    data["it_dept"].append({
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "action": it_action.strip(),
-                        "tech": it_tech.strip(),
-                        "status": it_status,
-                        "notes": it_notes.strip()
-                    })
-                    save_data(data)
-                    st.session_state["success_msg"] = "✅ تم حفظ سجل نظم المعلومات بنجاح!"
-                    st.rerun()
+            summary = []
+            for d in group_data["drivers"]:
+                b = balances[d["name"]]
+                summary.append({
+                    "السائق": d["name"],
+                    "أنطى": b["given"], "أخذ": b["received"],
+                    "الصافي (أجور)": b["given"] - b["received"],
+                    "الصافي المالي (د.ع)": f"{(b['g_money'] - b['r_money']):,}"
+                })
+            df_sum = pd.DataFrame(summary)
+            st.dataframe(df_sum, use_container_width=True)
+            st.download_button("📥 تحميل الميزان (Excel)", df_sum.to_csv(index=False, encoding='utf-8-sig'), "ميزان.csv", "text/csv")
+        else:
+            st.info("لا توجد بيانات لعرض الميزان.")
 
-    if data["it_dept"]:
-        st.markdown("##### 📋 سجل أعمال نظم المعلومات والبصمة")
-        st.dataframe(pd.DataFrame(data["it_dept"]), use_container_width=True)
-    else:
-        st.info("لا توجد سجلات في قسم نظم المعلومات حالياً.")
-
-# ---------------- 5. الحسابات والعهد ----------------
-with tab_acc:
-    st.subheader("💰 الحسابات والعهد والمصاريف")
-    
-    with st.expander("➕ تسجيل قيد مالي أو عهدة جديدة"):
-        with st.form("acc_form", clear_on_submit=True):
-            acc_title = st.text_input("بيان الصرف / العهدة / التخصيص:")
-            acc_type = st.selectbox("نوع الحركة:", ["صرف مالي", "استلام عهدة", "تسوية حسابات"])
-            acc_amount = st.number_input("المبلغ (د.ع):", value=50000, step=5000)
-            acc_person = st.text_input("المستفيد أو المسؤول عن العهدة:")
-            
-            if st.form_submit_button("حفظ القيد المالي 💰", type="primary"):
-                if acc_title.strip() and acc_amount > 0:
-                    data["accounts_dept"].append({
-                        "time": datetime.now().strftime("%Y-%m-%d"),
-                        "title": acc_title.strip(),
-                        "type": acc_type,
-                        "amount": float(acc_amount),
-                        "person": acc_person.strip()
-                    })
-                    save_data(data)
-                    st.session_state["success_msg"] = "✅ تم حفظ القيد المالي بنجاح!"
-                    st.rerun()
-
-    if data["accounts_dept"]:
-        st.markdown("##### 📋 سجل الحسابات والعهد")
-        df_acc = pd.DataFrame(data["accounts_dept"])
-        st.dataframe(df_acc, use_container_width=True)
-        total_money = df_acc["amount"].sum()
-        st.markdown(f"### 💵 إجمالي المبالغ المرصودة: `{total_money:,.0f}` د.ع")
-    else:
-        st.info("لا توجد قيود مالية مسجلة حالياً.")
+    with tab7:
+        st.subheader("💬 محادثة الگرووب")
+        c_box = st.container(height=300)
+        with c_box:
+            for msg in group_data["chat"]:
+                st.markdown(f"**💬 {msg['sender']}** ({msg['time']}):<br>{msg['text']}", unsafe_allow_html=True)
+                st.markdown("---")
+        with st.form("adm_chat", clear_on_submit=True):
+            txt_msg = st.text_input("اكتب رسالة:")
+            if st.form_submit_button("إرسال 📨", type="primary") and txt_msg.strip():
+                group_data["chat"].append({
+                    "sender": st.session_state.user_name,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "text": txt_msg.strip()
+                })
+                save_data(data)
+                st.rerun()
