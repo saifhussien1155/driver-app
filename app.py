@@ -174,4 +174,11 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.role = None
     st.session_state.user_name = None
-    st.
+    st.session_state.current_group = None
+
+if not st.session_state.authenticated:
+    st.markdown("""
+        <div style="text-align: center; padding: 15px 0 10px 0;">
+            <div style="font-size: 3.8rem; line-height: 1;">🚖</div>
+            <h2 style="color: #d97706; margin-top: 8px; font-weight: 800;">كابتن الجروب</h2>
+            <p style="color: #
