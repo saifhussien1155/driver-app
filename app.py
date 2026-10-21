@@ -169,7 +169,7 @@ if "reset_step" not in st.session_state:
     st.session_state.reset_phone = ""
     st.session_state.otp_code = ""
 
-# ---------------- 🔒 شاشة تسجيل الدخول أو التسجيل أو استعادة الرمز ----------------
+# ---------------- 🔒 تسجيل الدخول واستعادة الرمز ----------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.role = None
@@ -354,7 +354,7 @@ if not st.session_state.authenticated:
                 st.rerun()
     st.stop()
 
-# ---------------- بداية التطبيق بعد تسجيل الدخول بنجاح ----------------
+# ---------------- بداية التطبيق ----------------
 
 if st.session_state.role == "manager":
     st.markdown("""
@@ -436,172 +436,3 @@ st.markdown(f"""
         </div>
         <div class="metric-card">
             <div class="metric-val">{today_trips_count}</div>
-            <div class="metric-lbl">كروات اليوم 📈</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-val">{total_trips_count}</div>
-            <div class="metric-lbl">مجموع الكروات 📋</div>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-
-# التبويبات المحدثة مع فصل المشرفين عن الأعضاء وتبويب البحث الشامل
-tabs = st.tabs(["📝 تسجيل رزق", "👑 المشرفين", "🚘 الأعضاء", "🔎 البحث الشامل", "📋 سجل الكروات", "📊 الميزان", "⚙️ الإعدادات"])
-tab_add_trip, tab_sup_mgmt, tab_drv_mgmt, tab_search, tab_trips, tab_balance, tab_settings = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4], tabs[5], tabs[6]
-
-with tab_add_trip:
-    st.subheader("📝 تسجيل طلب / رزق جديد (مع التاريخ والوقت التلقائي)")
-    active_drivers = [d["name"] for d in group_data["drivers"] if not d.get("frozen", False)]
-    if not active_drivers:
-        st.warning("لا يوجد سواق نشطون في هذا الجروب حالياً!")
-    else:
-        with st.form("add_trip_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                giver = st.selectbox("السائق المعطي (صاحب الكروة):", active_drivers, key="giver")
-            with col2:
-                receiver = st.selectbox("السائق المستلم:", active_drivers, key="receiver")
-                
-            resq_type = st.selectbox("نوع الرزق / الكروة:", list(group_data["prices"].keys()))
-            default_price = group_data["prices"].get(resq_type, 0)
-            trip_price = st.number_input("سعر الكروة (دينار عراقي):", value=int(default_price), step=500)
-            notes = st.text_input("ملاحظات إضافية (اختياري):")
-            
-            submit_trip = st.form_submit_button("➕ تسجيل الرزق الآن", type="primary")
-            if submit_trip:
-                if giver == receiver:
-                    st.error("⚠️ لا يمكن أن يكون السائق المعطي هو نفسه المستلم!")
-                else:
-                    now_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    new_trip = {
-                        "id": len(group_data["trips"]) + 1,
-                        "time": now_time_str,
-                        "giver": giver,
-                        "receiver": receiver,
-                        "type": resq_type,
-                        "price": float(trip_price),
-                        "notes": notes,
-                        "added_by": st.session_state.user_name
-                    }
-                    group_data["trips"].append(new_trip)
-                    save_data(data)
-                    st.session_state["success_msg"] = f"✅ تم تسجيل الكروة بنجاح في الوقت: ({now_time_str})"
-                    st.rerun()
-
-with tab_sup_mgmt:
-    st.subheader("👑 إدارة المشرفين")
-    with st.form("add_sup_form", clear_on_submit=True):
-        s_name = st.text_input("اسم المشرف *:")
-        s_phone = st.text_input("رقم موبايل المشرف (لتسجيل الدخول والاستعادة) *:")
-        s_pin = st.text_input("الرمز السري الخاص به (PIN) *:", type="password")
-        sub_s = st.form_submit_button("إضافة وتوثيق المشرف ➕")
-        if sub_s:
-            s_name = s_name.strip()
-            s_phone = s_phone.strip()
-            s_pin = s_pin.strip()
-            if not s_name or not s_phone or not s_pin:
-                st.error("يرجى ملء كافة حقول المشرف بدقة!")
-            else:
-                phone_taken = (s_phone == str(group_data["phone"])) or any(str(sup.get("phone")) == s_phone for sup in group_data["supervisors"])
-                if phone_taken:
-                    st.error("رقم الهاتف هذا مسجل مسبقاً لمشرف أو مسؤول آخر في الجروب!")
-                else:
-                    group_data["supervisors"].append({"name": s_name, "phone": s_phone, "pin": s_pin, "frozen": False})
-                    save_data(data)
-                    st.session_state["success_msg"] = f"✅ تم إضافة المشرف ({s_name}) بنجاح!"
-                    st.rerun()
-                    
-    if group_data["supervisors"]:
-        st.markdown("#### 📋 قائمة المشرفين المسجلين:")
-        df_sup = pd.DataFrame(group_data["supervisors"])
-        df_sup["الحالة"] = df_sup["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
-        st.dataframe(df_sup[["name", "phone", "الحالة"]].rename(columns={"name": "اسم المشرف", "phone": "رقم الهاتف"}), use_container_width=True)
-        
-        sel_s = st.selectbox("اختر المشرف للإدارة:", [s["name"] for s in group_data["supervisors"]])
-        s_obj = next((s for s in group_data["supervisors"] if s["name"] == sel_s), None)
-        col_s1, col_s2 = st.columns(2)
-        with col_s1:
-            if s_obj and st.button("🧊 تجميد/فك تجميد المشرف"):
-                s_obj["frozen"] = not s_obj.get("frozen", False)
-                save_data(data)
-                st.session_state["success_msg"] = "✅ تم تحديث حالة المشرف بنجاح!"
-                st.rerun()
-        with col_s2:
-            if s_obj and st.button("🗑️ حذف المشرف"):
-                group_data["supervisors"] = [s for s in group_data["supervisors"] if s["name"] != sel_s]
-                save_data(data)
-                st.session_state["success_msg"] = "🗑️ تم حذف المشرف نهائياً!"
-                st.rerun()
-    else:
-        st.info("لا توجد مشرفين مضافين حالياً.")
-
-with tab_drv_mgmt:
-    st.subheader("🚘 إدارة الأعضاء والسواق")
-    with st.form("add_d_form", clear_on_submit=True):
-        d_name = st.text_input("اسم السائق الكامل *:")
-        d_phone = st.text_input("رقم الهاتف:")
-        d_car = st.text_input("نوع وموديل السيارة:")
-        d_address = st.text_input("عنوان السكن:")
-        sub_d = st.form_submit_button("إضافة السائق ➕")
-        if sub_d:
-            d_name = d_name.strip()
-            if not d_name:
-                st.error("يرجى إدخال اسم السائق!")
-            elif d_name in [d["name"] for d in group_data["drivers"]]:
-                st.error("السائق موجود بالفعل!")
-            else:
-                group_data["drivers"].append({"name": d_name, "phone": d_phone, "car": d_car, "address": d_address, "frozen": False})
-                save_data(data)
-                st.session_state["success_msg"] = f"✅ تم إضافة السائق ({d_name}) بنجاح!"
-                st.rerun()
-
-    st.markdown("---")
-    st.subheader("📋 قائمة سواق الأعضاء")
-    if group_data["drivers"]:
-        df_d = pd.DataFrame(group_data["drivers"])
-        df_d["الحالة"] = df_d["frozen"].apply(lambda x: "🧊 مجمد" if x else "✅ نشط")
-        st.dataframe(df_d[["name", "الحالة", "phone", "car", "address"]].rename(columns={"name": "الاسم", "phone": "الهاتف", "car": "السيارة", "address": "السكن"}), use_container_width=True)
-        
-        sel_drv_del = st.selectbox("اختر سائق للحذف أو التجميد:", [d["name"] for d in group_data["drivers"]])
-        d_obj = next((d for d in group_data["drivers"] if d["name"] == sel_drv_del), None)
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if d_obj and st.button("🧊 تجميد/فك تجميد السائق"):
-                d_obj["frozen"] = not d_obj.get("frozen", False)
-                save_data(data)
-                st.session_state["success_msg"] = "✅ تم تحديث حالة السائق!"
-                st.rerun()
-        with col_btn2:
-            if st.button("🗑️ حذف السائق نهائياً"):
-                group_data["drivers"] = [d for d in group_data["drivers"] if d["name"] != sel_drv_del]
-                save_data(data)
-                st.session_state["success_msg"] = "🗑️ تم حذف السائق!"
-                st.rerun()
-    else:
-        st.info("لا توجد أعضاء سواق مضافين حالياً.")
-
-with tab_search:
-    st.subheader("🔎 البحث السريع والتفصيلي باسم السائق")
-    all_driver_names = [d["name"] for d in group_data["drivers"]]
-    if not all_driver_names:
-        st.info("لا توجد أعضاء متاحين للبحث.")
-    else:
-        selected_search_name = st.selectbox("اختر اسم السائق لعرض سجله الكامل:", all_driver_names)
-        if selected_search_name:
-            received_trips = [t for t in group_data["trips"] if t.get("receiver") == selected_search_name]
-            given_trips = [t for t in group_data["trips"] if t.get("giver") == selected_search_name]
-            
-            total_rec_money = sum(float(t.get("price", 0)) for t in received_trips)
-            total_giv_money = sum(float(t.get("price", 0)) for t in given_trips)
-            
-            st.markdown(f"### 📊 كشف حساب تفصيلي: `{selected_search_name}`")
-            c_m1, c_m2, c_m3 = st.columns(3)
-            c_m1.metric("عدد الكروات المستلمة (أخذها)", len(received_trips), f"{total_rec_money:,.0f} د.ع")
-            c_m2.metric("عدد الكروات المعطاة (أنطاها)", len(given_trips), f"{total_giv_money:,.0f} د.ع")
-            c_m3.metric("الصافي الفعلي", f"{(total_giv_money - total_rec_money):,.0f} د.ع")
-            
-            st.markdown("---")
-            st.markdown(f"##### 📥 الكروات التي أخذها السائق ({selected_search_name}):")
-            if received_trips:
-                df_rec = pd.DataFrame(received_trips)
-                df_rec.columns = ["الرقم", "التاريخ والوقت ⏰", "المعطي (صاحب الرزق)", "المستلم", "نوع الرزق", "السعر", "ملاحظ
